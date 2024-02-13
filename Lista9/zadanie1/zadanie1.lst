@@ -1,0 +1,342 @@
+
+zadanie1.elf:     file format elf32-avr
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .text         000001cc  00000000  00000000  00000094  2**1
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  1 .data         00000000  00800060  000001cc  00000260  2**0
+                  CONTENTS, ALLOC, LOAD, DATA
+  2 .bss          00000015  00800060  00800060  00000260  2**0
+                  ALLOC
+  3 .stab         000006fc  00000000  00000000  00000260  2**2
+                  CONTENTS, READONLY, DEBUGGING
+  4 .stabstr      00000d03  00000000  00000000  0000095c  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  5 .comment      00000011  00000000  00000000  0000165f  2**0
+                  CONTENTS, READONLY
+  6 .note.gnu.avr.deviceinfo 0000003c  00000000  00000000  00001670  2**2
+                  CONTENTS, READONLY
+  7 .debug_info   00000420  00000000  00000000  000016ac  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  8 .debug_abbrev 000003e8  00000000  00000000  00001acc  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  9 .debug_line   0000001a  00000000  00000000  00001eb4  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 10 .debug_str    00000173  00000000  00000000  00001ece  2**0
+                  CONTENTS, READONLY, DEBUGGING
+
+Disassembly of section .text:
+
+00000000 <__vectors>:
+   0:	10 c0       	rjmp	.+32     	; 0x22 <__ctors_end>
+   2:	1f c0       	rjmp	.+62     	; 0x42 <__bad_interrupt>
+   4:	1e c0       	rjmp	.+60     	; 0x42 <__bad_interrupt>
+   6:	1d c0       	rjmp	.+58     	; 0x42 <__bad_interrupt>
+   8:	1c c0       	rjmp	.+56     	; 0x42 <__bad_interrupt>
+   a:	1b c0       	rjmp	.+54     	; 0x42 <__bad_interrupt>
+   c:	1a c0       	rjmp	.+52     	; 0x42 <__bad_interrupt>
+   e:	19 c0       	rjmp	.+50     	; 0x42 <__bad_interrupt>
+  10:	18 c0       	rjmp	.+48     	; 0x42 <__bad_interrupt>
+  12:	22 c0       	rjmp	.+68     	; 0x58 <__vector_9>
+  14:	16 c0       	rjmp	.+44     	; 0x42 <__bad_interrupt>
+  16:	15 c0       	rjmp	.+42     	; 0x42 <__bad_interrupt>
+  18:	14 c0       	rjmp	.+40     	; 0x42 <__bad_interrupt>
+  1a:	13 c0       	rjmp	.+38     	; 0x42 <__bad_interrupt>
+  1c:	12 c0       	rjmp	.+36     	; 0x42 <__bad_interrupt>
+  1e:	11 c0       	rjmp	.+34     	; 0x42 <__bad_interrupt>
+  20:	10 c0       	rjmp	.+32     	; 0x42 <__bad_interrupt>
+
+00000022 <__ctors_end>:
+  22:	11 24       	eor	r1, r1
+  24:	1f be       	out	0x3f, r1	; 63
+  26:	cf e5       	ldi	r28, 0x5F	; 95
+  28:	d2 e0       	ldi	r29, 0x02	; 2
+  2a:	de bf       	out	0x3e, r29	; 62
+  2c:	cd bf       	out	0x3d, r28	; 61
+
+0000002e <__do_clear_bss>:
+  2e:	20 e0       	ldi	r18, 0x00	; 0
+  30:	a0 e6       	ldi	r26, 0x60	; 96
+  32:	b0 e0       	ldi	r27, 0x00	; 0
+  34:	01 c0       	rjmp	.+2      	; 0x38 <.do_clear_bss_start>
+
+00000036 <.do_clear_bss_loop>:
+  36:	1d 92       	st	X+, r1
+
+00000038 <.do_clear_bss_start>:
+  38:	a5 37       	cpi	r26, 0x75	; 117
+  3a:	b2 07       	cpc	r27, r18
+  3c:	e1 f7       	brne	.-8      	; 0x36 <.do_clear_bss_loop>
+  3e:	ab d0       	rcall	.+342    	; 0x196 <main>
+  40:	c3 c0       	rjmp	.+390    	; 0x1c8 <_exit>
+
+00000042 <__bad_interrupt>:
+  42:	de cf       	rjmp	.-68     	; 0x0 <__vectors>
+
+00000044 <timer0_init>:
+// }
+
+
+void timer0_init() {
+  // ctc mode tak zeby przerwanie było co 1/100 s
+  TCCR0A = _BV(WGM01);            // CTC
+  44:	82 e0       	ldi	r24, 0x02	; 2
+  46:	80 bf       	out	0x30, r24	; 48
+  TCCR0B = _BV(CS02); // clk_io /1024
+  48:	84 e0       	ldi	r24, 0x04	; 4
+  4a:	83 bf       	out	0x33, r24	; 51
+  OCR0A = 30;                    // 100Hz
+  4c:	8e e1       	ldi	r24, 0x1E	; 30
+  4e:	86 bf       	out	0x36, r24	; 54
+  TIMSK0 |= _BV(OCIE0A);
+  50:	89 b7       	in	r24, 0x39	; 57
+  52:	82 60       	ori	r24, 0x02	; 2
+  54:	89 bf       	out	0x39, r24	; 57
+  56:	08 95       	ret
+
+00000058 <__vector_9>:
+}
+
+ISR(TIM0_COMPA_vect){
+  58:	1f 92       	push	r1
+  5a:	0f 92       	push	r0
+  5c:	0f b6       	in	r0, 0x3f	; 63
+  5e:	0f 92       	push	r0
+  60:	11 24       	eor	r1, r1
+  62:	2f 93       	push	r18
+  64:	3f 93       	push	r19
+  66:	4f 93       	push	r20
+  68:	5f 93       	push	r21
+  6a:	8f 93       	push	r24
+  6c:	9f 93       	push	r25
+  6e:	ef 93       	push	r30
+  70:	ff 93       	push	r31
+  if(num >= SIZE*8) num = 0;
+  72:	80 91 63 00 	lds	r24, 0x0063	; 0x800063 <num>
+  76:	90 91 64 00 	lds	r25, 0x0064	; 0x800064 <num+0x1>
+  7a:	80 38       	cpi	r24, 0x80	; 128
+  7c:	91 05       	cpc	r25, r1
+  7e:	20 f0       	brcs	.+8      	; 0x88 <__vector_9+0x30>
+  80:	10 92 64 00 	sts	0x0064, r1	; 0x800064 <num+0x1>
+  84:	10 92 63 00 	sts	0x0063, r1	; 0x800063 <num>
+  if(reader >= SIZE * 8) reader = 0;
+  88:	80 91 61 00 	lds	r24, 0x0061	; 0x800061 <reader>
+  8c:	90 91 62 00 	lds	r25, 0x0062	; 0x800062 <reader+0x1>
+  90:	80 38       	cpi	r24, 0x80	; 128
+  92:	91 05       	cpc	r25, r1
+  94:	20 f0       	brcs	.+8      	; 0x9e <__vector_9+0x46>
+  96:	10 92 62 00 	sts	0x0062, r1	; 0x800062 <reader+0x1>
+  9a:	10 92 61 00 	sts	0x0061, r1	; 0x800061 <reader>
+  if(num > 100) can_read = 1;
+  9e:	80 91 63 00 	lds	r24, 0x0063	; 0x800063 <num>
+  a2:	90 91 64 00 	lds	r25, 0x0064	; 0x800064 <num+0x1>
+  a6:	85 36       	cpi	r24, 0x65	; 101
+  a8:	91 05       	cpc	r25, r1
+  aa:	18 f0       	brcs	.+6      	; 0xb2 <__vector_9+0x5a>
+  ac:	81 e0       	ldi	r24, 0x01	; 1
+  ae:	80 93 60 00 	sts	0x0060, r24	; 0x800060 <__DATA_REGION_ORIGIN__>
+  if(get_value(num) && can_read) LED_PORT |= _BV(LED);
+  b2:	20 91 63 00 	lds	r18, 0x0063	; 0x800063 <num>
+  b6:	30 91 64 00 	lds	r19, 0x0064	; 0x800064 <num+0x1>
+  if(value) tab[place>>3] |= 1 << (place & 0x111);
+  else tab[place>>3] &= ~ (1 << (place & 0x111));
+}
+
+__attribute__((always_inline)) static inline int get_value(int place){
+  return (tab[place>>3] & (1 << (place & 0x111)));
+  ba:	f9 01       	movw	r30, r18
+  bc:	f5 95       	asr	r31
+  be:	e7 95       	ror	r30
+  c0:	f5 95       	asr	r31
+  c2:	e7 95       	ror	r30
+  c4:	f5 95       	asr	r31
+  c6:	e7 95       	ror	r30
+  c8:	eb 59       	subi	r30, 0x9B	; 155
+  ca:	ff 4f       	sbci	r31, 0xFF	; 255
+
+ISR(TIM0_COMPA_vect){
+  if(num >= SIZE*8) num = 0;
+  if(reader >= SIZE * 8) reader = 0;
+  if(num > 100) can_read = 1;
+  if(get_value(num) && can_read) LED_PORT |= _BV(LED);
+  cc:	80 81       	ld	r24, Z
+  ce:	48 2f       	mov	r20, r24
+  d0:	50 e0       	ldi	r21, 0x00	; 0
+  d2:	21 71       	andi	r18, 0x11	; 17
+  d4:	31 70       	andi	r19, 0x01	; 1
+  d6:	81 e0       	ldi	r24, 0x01	; 1
+  d8:	90 e0       	ldi	r25, 0x00	; 0
+  da:	02 c0       	rjmp	.+4      	; 0xe0 <__vector_9+0x88>
+  dc:	88 0f       	add	r24, r24
+  de:	99 1f       	adc	r25, r25
+  e0:	2a 95       	dec	r18
+  e2:	e2 f7       	brpl	.-8      	; 0xdc <__vector_9+0x84>
+  e4:	84 23       	and	r24, r20
+  e6:	95 23       	and	r25, r21
+  e8:	89 2b       	or	r24, r25
+  ea:	21 f0       	breq	.+8      	; 0xf4 <__vector_9+0x9c>
+  ec:	80 91 60 00 	lds	r24, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+  f0:	81 11       	cpse	r24, r1
+  f2:	42 c0       	rjmp	.+132    	; 0x178 <__vector_9+0x120>
+  else LED_PORT &= ~_BV(LED);
+  f4:	d9 98       	cbi	0x1b, 1	; 27
+  uint8_t val = !(PINA & _BV(BUTTON));
+  f6:	29 b3       	in	r18, 0x19	; 25
+  set_value(num,val);
+  f8:	80 91 63 00 	lds	r24, 0x0063	; 0x800063 <num>
+  fc:	90 91 64 00 	lds	r25, 0x0064	; 0x800064 <num+0x1>
+uint8_t tab[SIZE];
+volatile uint16_t num = 0;
+volatile uint16_t reader = 0;
+volatile uint8_t can_read = 0;
+__attribute__((always_inline)) static inline void set_value(int place, int value){
+  if(value) tab[place>>3] |= 1 << (place & 0x111);
+ 100:	fc 01       	movw	r30, r24
+ 102:	f5 95       	asr	r31
+ 104:	e7 95       	ror	r30
+ 106:	f5 95       	asr	r31
+ 108:	e7 95       	ror	r30
+ 10a:	f5 95       	asr	r31
+ 10c:	e7 95       	ror	r30
+ 10e:	eb 59       	subi	r30, 0x9B	; 155
+ 110:	ff 4f       	sbci	r31, 0xFF	; 255
+ 112:	81 71       	andi	r24, 0x11	; 17
+ 114:	91 70       	andi	r25, 0x01	; 1
+ 116:	22 ff       	sbrs	r18, 2
+ 118:	31 c0       	rjmp	.+98     	; 0x17c <__vector_9+0x124>
+  else tab[place>>3] &= ~ (1 << (place & 0x111));
+ 11a:	21 e0       	ldi	r18, 0x01	; 1
+ 11c:	30 e0       	ldi	r19, 0x00	; 0
+ 11e:	a9 01       	movw	r20, r18
+ 120:	02 c0       	rjmp	.+4      	; 0x126 <__vector_9+0xce>
+ 122:	44 0f       	add	r20, r20
+ 124:	55 1f       	adc	r21, r21
+ 126:	8a 95       	dec	r24
+ 128:	e2 f7       	brpl	.-8      	; 0x122 <__vector_9+0xca>
+ 12a:	ca 01       	movw	r24, r20
+ 12c:	80 95       	com	r24
+ 12e:	90 81       	ld	r25, Z
+ 130:	89 23       	and	r24, r25
+ 132:	80 83       	st	Z, r24
+  if(num > 100) can_read = 1;
+  if(get_value(num) && can_read) LED_PORT |= _BV(LED);
+  else LED_PORT &= ~_BV(LED);
+  uint8_t val = !(PINA & _BV(BUTTON));
+  set_value(num,val);
+  reader += can_read;
+ 134:	20 91 60 00 	lds	r18, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+ 138:	80 91 61 00 	lds	r24, 0x0061	; 0x800061 <reader>
+ 13c:	90 91 62 00 	lds	r25, 0x0062	; 0x800062 <reader+0x1>
+ 140:	82 0f       	add	r24, r18
+ 142:	91 1d       	adc	r25, r1
+ 144:	90 93 62 00 	sts	0x0062, r25	; 0x800062 <reader+0x1>
+ 148:	80 93 61 00 	sts	0x0061, r24	; 0x800061 <reader>
+  num++;
+ 14c:	80 91 63 00 	lds	r24, 0x0063	; 0x800063 <num>
+ 150:	90 91 64 00 	lds	r25, 0x0064	; 0x800064 <num+0x1>
+ 154:	01 96       	adiw	r24, 0x01	; 1
+ 156:	90 93 64 00 	sts	0x0064, r25	; 0x800064 <num+0x1>
+ 15a:	80 93 63 00 	sts	0x0063, r24	; 0x800063 <num>
+}
+ 15e:	ff 91       	pop	r31
+ 160:	ef 91       	pop	r30
+ 162:	9f 91       	pop	r25
+ 164:	8f 91       	pop	r24
+ 166:	5f 91       	pop	r21
+ 168:	4f 91       	pop	r20
+ 16a:	3f 91       	pop	r19
+ 16c:	2f 91       	pop	r18
+ 16e:	0f 90       	pop	r0
+ 170:	0f be       	out	0x3f, r0	; 63
+ 172:	0f 90       	pop	r0
+ 174:	1f 90       	pop	r1
+ 176:	18 95       	reti
+
+ISR(TIM0_COMPA_vect){
+  if(num >= SIZE*8) num = 0;
+  if(reader >= SIZE * 8) reader = 0;
+  if(num > 100) can_read = 1;
+  if(get_value(num) && can_read) LED_PORT |= _BV(LED);
+ 178:	d9 9a       	sbi	0x1b, 1	; 27
+ 17a:	bd cf       	rjmp	.-134    	; 0xf6 <__vector_9+0x9e>
+uint8_t tab[SIZE];
+volatile uint16_t num = 0;
+volatile uint16_t reader = 0;
+volatile uint8_t can_read = 0;
+__attribute__((always_inline)) static inline void set_value(int place, int value){
+  if(value) tab[place>>3] |= 1 << (place & 0x111);
+ 17c:	21 e0       	ldi	r18, 0x01	; 1
+ 17e:	30 e0       	ldi	r19, 0x00	; 0
+ 180:	a9 01       	movw	r20, r18
+ 182:	02 c0       	rjmp	.+4      	; 0x188 <__vector_9+0x130>
+ 184:	44 0f       	add	r20, r20
+ 186:	55 1f       	adc	r21, r21
+ 188:	8a 95       	dec	r24
+ 18a:	e2 f7       	brpl	.-8      	; 0x184 <__vector_9+0x12c>
+ 18c:	ca 01       	movw	r24, r20
+ 18e:	90 81       	ld	r25, Z
+ 190:	89 2b       	or	r24, r25
+ 192:	80 83       	st	Z, r24
+ 194:	cf cf       	rjmp	.-98     	; 0x134 <__vector_9+0xdc>
+
+00000196 <main>:
+  reader += can_read;
+  num++;
+}
+
+int main() {
+  LED_DDR  |= _BV(LED);
+ 196:	d1 9a       	sbi	0x1a, 1	; 26
+  LED_PORT &= ~_BV(LED);
+ 198:	d9 98       	cbi	0x1b, 1	; 27
+    
+  BUTTON_DDR &= ~_BV(BUTTON);
+ 19a:	d2 98       	cbi	0x1a, 2	; 26
+  BUTTON_PORT |= _BV(BUTTON);
+ 19c:	da 9a       	sbi	0x1b, 2	; 27
+    
+  set_sleep_mode(SLEEP_MODE_IDLE);
+ 19e:	85 b7       	in	r24, 0x35	; 53
+ 1a0:	87 7e       	andi	r24, 0xE7	; 231
+ 1a2:	85 bf       	out	0x35, r24	; 53
+  sei();
+ 1a4:	78 94       	sei
+// }
+
+
+void timer0_init() {
+  // ctc mode tak zeby przerwanie było co 1/100 s
+  TCCR0A = _BV(WGM01);            // CTC
+ 1a6:	82 e0       	ldi	r24, 0x02	; 2
+ 1a8:	80 bf       	out	0x30, r24	; 48
+  TCCR0B = _BV(CS02); // clk_io /1024
+ 1aa:	84 e0       	ldi	r24, 0x04	; 4
+ 1ac:	83 bf       	out	0x33, r24	; 51
+  OCR0A = 30;                    // 100Hz
+ 1ae:	8e e1       	ldi	r24, 0x1E	; 30
+ 1b0:	86 bf       	out	0x36, r24	; 54
+  TIMSK0 |= _BV(OCIE0A);
+ 1b2:	89 b7       	in	r24, 0x39	; 57
+ 1b4:	82 60       	ori	r24, 0x02	; 2
+ 1b6:	89 bf       	out	0x39, r24	; 57
+    
+  set_sleep_mode(SLEEP_MODE_IDLE);
+  sei();
+  timer0_init();
+  while(1){
+    sleep_mode();
+ 1b8:	85 b7       	in	r24, 0x35	; 53
+ 1ba:	80 62       	ori	r24, 0x20	; 32
+ 1bc:	85 bf       	out	0x35, r24	; 53
+ 1be:	88 95       	sleep
+ 1c0:	85 b7       	in	r24, 0x35	; 53
+ 1c2:	8f 7d       	andi	r24, 0xDF	; 223
+ 1c4:	85 bf       	out	0x35, r24	; 53
+ 1c6:	f8 cf       	rjmp	.-16     	; 0x1b8 <main+0x22>
+
+000001c8 <_exit>:
+ 1c8:	f8 94       	cli
+
+000001ca <__stop_program>:
+ 1ca:	ff cf       	rjmp	.-2      	; 0x1ca <__stop_program>

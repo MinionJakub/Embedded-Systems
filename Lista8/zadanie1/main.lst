@@ -1,0 +1,544 @@
+   1               		.file	"main.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   9               		.text
+  10               	.Ltext0:
+ 182               	vButton:
+ 183               		.stabd	46,0,0
+   1:main.c        **** /******************************************************************************
+   2:main.c        ****  * Header file inclusions.
+   3:main.c        ****  ******************************************************************************/
+   4:main.c        **** #define __AVR_ATmega328P__
+   5:main.c        **** 
+   6:main.c        **** #include "FreeRTOS.h"
+   7:main.c        **** #include "task.h"
+   8:main.c        **** 
+   9:main.c        **** #include <avr/io.h>
+  10:main.c        **** 
+  11:main.c        **** 
+  12:main.c        **** #include <stdio.h>
+  13:main.c        **** // #include "uart.h"
+  14:main.c        **** 
+  15:main.c        **** 
+  16:main.c        **** /******************************************************************************
+  17:main.c        ****  * Private macro definitions.
+  18:main.c        ****  ******************************************************************************/
+  19:main.c        **** 
+  20:main.c        **** #define mainLED_counter_TASK_PRIORITY   2
+  21:main.c        **** 
+  22:main.c        **** #define mainBUTTON_TASK_PRIORITY 1
+  23:main.c        **** 
+  24:main.c        **** /******************************************************************************
+  25:main.c        ****  * Private function prototypes.
+  26:main.c        ****  ******************************************************************************/
+  27:main.c        **** 
+  28:main.c        **** static void vLED_counter(void* pvParameters);
+  29:main.c        **** 
+  30:main.c        **** static void vButton(void* pvParameters);
+  31:main.c        **** 
+  32:main.c        **** /******************************************************************************
+  33:main.c        ****  * Public function definitions.
+  34:main.c        ****  ******************************************************************************/
+  35:main.c        **** 
+  36:main.c        **** /**************************************************************************//**
+  37:main.c        ****  * \fn int main(void)
+  38:main.c        ****  *
+  39:main.c        ****  * \brief Main function.
+  40:main.c        ****  *
+  41:main.c        ****  * \return
+  42:main.c        ****  ******************************************************************************/
+  43:main.c        **** int main(void)
+  44:main.c        **** {
+  45:main.c        ****     // Create task.
+  46:main.c        ****     xTaskHandle blink_handle;
+  47:main.c        ****     xTaskHandle serial_handle;
+  48:main.c        **** 
+  49:main.c        ****     xTaskCreate
+  50:main.c        ****         (
+  51:main.c        ****          vLED_counter,
+  52:main.c        ****          "blink",
+  53:main.c        ****          configMINIMAL_STACK_SIZE,
+  54:main.c        ****          NULL,
+  55:main.c        ****          mainLED_counter_TASK_PRIORITY,
+  56:main.c        ****          &blink_handle
+  57:main.c        ****         );
+  58:main.c        **** 
+  59:main.c        ****     xTaskCreate
+  60:main.c        ****         (
+  61:main.c        ****          vButton,
+  62:main.c        ****          "serial",
+  63:main.c        ****          configMINIMAL_STACK_SIZE,
+  64:main.c        ****          NULL,
+  65:main.c        ****          mainBUTTON_TASK_PRIORITY,
+  66:main.c        ****          &serial_handle
+  67:main.c        ****         );
+  68:main.c        **** 
+  69:main.c        ****     // Start scheduler.
+  70:main.c        ****     vTaskStartScheduler();
+  71:main.c        **** 
+  72:main.c        ****     return 0;
+  73:main.c        **** }
+  74:main.c        **** 
+  75:main.c        **** /**************************************************************************//**
+  76:main.c        ****  * \fn static vApplicationIdleHook(void)
+  77:main.c        ****  *
+  78:main.c        ****  * \brief
+  79:main.c        ****  ******************************************************************************/
+  80:main.c        **** void vApplicationIdleHook(void)
+  81:main.c        **** {
+  82:main.c        **** 
+  83:main.c        **** }
+  84:main.c        **** 
+  85:main.c        **** /******************************************************************************
+  86:main.c        ****  * Private function definitions.
+  87:main.c        ****  ******************************************************************************/
+  88:main.c        **** 
+  89:main.c        **** /**************************************************************************//**
+  90:main.c        ****  * \fn static void vLED_counter(void* pvParameters)
+  91:main.c        ****  *
+  92:main.c        ****  * \brief
+  93:main.c        ****  *
+  94:main.c        ****  * \param[in]   pvParameters
+  95:main.c        ****  ******************************************************************************/
+  96:main.c        **** 
+  97:main.c        **** #define LED_DDR DDRD
+  98:main.c        **** #define LED_PORT PORTD
+  99:main.c        **** 
+ 100:main.c        **** static const LED_DIGITS[] = {
+ 101:main.c        **** 192 , //0
+ 102:main.c        **** 249 , //1
+ 103:main.c        **** 164 , //2
+ 104:main.c        **** 176 , //3
+ 105:main.c        **** 153 , //4
+ 106:main.c        **** 146 , //5
+ 107:main.c        **** 130 , //6
+ 108:main.c        **** 248 , //7
+ 109:main.c        **** 128 , //8
+ 110:main.c        **** 144   //9
+ 111:main.c        **** };
+ 112:main.c        **** 
+ 113:main.c        **** static void vLED_counter(void* pvParameters)
+ 114:main.c        **** {
+ 115:main.c        ****     static uint8_t counter = 0;
+ 116:main.c        ****     LED_DDR = 0xff;
+ 117:main.c        ****     LED_PORT = 0xff;
+ 118:main.c        ****     while(1){
+ 119:main.c        ****         LED_PORT = LED_DIGITS[counter++];
+ 120:main.c        ****         counter %= 10;
+ 121:main.c        ****         vTaskDelay(1000/portTICK_PERIOD_MS);
+ 122:main.c        ****         // vTaskDelay(500/portTICK_PERIOD_MS);
+ 123:main.c        ****     }
+ 124:main.c        **** }
+ 125:main.c        **** 
+ 126:main.c        **** 
+ 127:main.c        **** /**************************************************************************//**
+ 128:main.c        ****  * \fn static void vButton(void* pvParameters)
+ 129:main.c        ****  *
+ 130:main.c        ****  * \brief
+ 131:main.c        ****  *
+ 132:main.c        ****  * \param[in]   pvParameters
+ 133:main.c        ****  ******************************************************************************/
+ 134:main.c        **** #define LED PB1
+ 135:main.c        **** #define LED_DDR2 DDRB
+ 136:main.c        **** #define LED_PORT2 PORTB
+ 137:main.c        **** 
+ 138:main.c        **** #define BUTTON PC4
+ 139:main.c        **** #define BUTTON_PORT PORTC
+ 140:main.c        **** #define BUTTON_DDR DDRC
+ 141:main.c        **** 
+ 142:main.c        **** #define CIRCLE_SIZE 256/8
+ 143:main.c        **** 
+ 144:main.c        **** static uint8_t cirular_buffer[CIRCLE_SIZE];
+ 145:main.c        **** 
+ 146:main.c        **** static inline uint8_t get_place(uint8_t value){
+ 147:main.c        ****     return (value >> 3);
+ 148:main.c        **** }
+ 149:main.c        **** 
+ 150:main.c        **** static inline uint8_t get_bit(uint8_t value){
+ 151:main.c        ****     return (value&7);
+ 152:main.c        **** }
+ 153:main.c        **** 
+ 154:main.c        **** static inline void light(uint8_t value){
+ 155:main.c        ****     if(value)
+ 156:main.c        ****         LED_PORT2 |= _BV(LED);
+ 157:main.c        ****     else
+ 158:main.c        ****         LED_PORT2 &= ~_BV(LED);
+ 159:main.c        **** }
+ 160:main.c        **** 
+ 161:main.c        **** 
+ 162:main.c        **** static void vButton(void* pvParameters)
+ 163:main.c        **** {
+ 185               	.LM0:
+ 186               	.LFBB1:
+ 187               	/* prologue: function */
+ 188               	/* frame size = 0 */
+ 189               	/* stack size = 0 */
+ 190               	.L__stack_usage = 0
+ 164:main.c        ****     BUTTON_DDR &= ~_BV(BUTTON);
+ 192               	.LM1:
+ 193 0000 3C98      		cbi 0x7,4
+ 165:main.c        ****     BUTTON_PORT |= _BV(BUTTON);
+ 195               	.LM2:
+ 196 0002 449A      		sbi 0x8,4
+ 166:main.c        **** 
+ 167:main.c        ****     LED_DDR2  |= _BV(LED);
+ 198               	.LM3:
+ 199 0004 219A      		sbi 0x4,1
+ 168:main.c        ****     uint8_t crossed_100 = 0;
+ 169:main.c        ****     uint8_t place;
+ 170:main.c        ****     uint8_t bit;
+ 171:main.c        ****     uint8_t writer = 0;
+ 201               	.LM4:
+ 202 0006 C0E0      		ldi r28,0
+ 168:main.c        ****     uint8_t crossed_100 = 0;
+ 204               	.LM5:
+ 205 0008 F12C      		mov r15,__zero_reg__
+ 172:main.c        ****     uint8_t reader = 0;
+ 207               	.LM6:
+ 208 000a D0E0      		ldi r29,0
+ 173:main.c        ****     // while(1) LED_PORT2 |= _BV(LED);
+ 174:main.c        ****     while(1){
+ 175:main.c        ****         if(reader == 255)
+ 176:main.c        ****             reader = 0;
+ 177:main.c        ****         if(writer == 255)
+ 178:main.c        ****             writer = 0;
+ 179:main.c        ****         if(!crossed_100 && writer == 100)
+ 180:main.c        ****             crossed_100 = 1;
+ 181:main.c        ****         place = get_place(writer);
+ 182:main.c        ****         bit = get_bit(writer);
+ 183:main.c        ****         if(!(PINC&_BV(BUTTON))){
+ 184:main.c        ****             cirular_buffer[place] |= _BV(bit);
+ 185:main.c        ****         }
+ 186:main.c        ****         else{
+ 187:main.c        ****             cirular_buffer[place] &= ~_BV(bit);
+ 210               	.LM7:
+ 211 000c 01E0      		ldi r16,lo8(1)
+ 212 000e 10E0      		ldi r17,0
+ 213               	.L2:
+ 177:main.c        ****             writer = 0;
+ 215               	.LM8:
+ 216 0010 CF3F      		cpi r28,lo8(-1)
+ 217 0012 01F0      		breq .L3
+ 179:main.c        ****             crossed_100 = 1;
+ 219               	.LM9:
+ 220 0014 F110      		cpse r15,__zero_reg__
+ 221 0016 00C0      		rjmp .L4
+ 179:main.c        ****             crossed_100 = 1;
+ 223               	.LM10:
+ 224 0018 C436      		cpi r28,lo8(100)
+ 225 001a 01F4      		brne .L11
+ 226 001c 00C0      		rjmp .L19
+ 227               	.L3:
+ 178:main.c        ****         if(!crossed_100 && writer == 100)
+ 229               	.LM11:
+ 230 001e C0E0      		ldi r28,0
+ 179:main.c        ****             crossed_100 = 1;
+ 232               	.LM12:
+ 233 0020 F110      		cpse r15,__zero_reg__
+ 234 0022 00C0      		rjmp .L4
+ 235               	.L11:
+ 178:main.c        ****         if(!crossed_100 && writer == 100)
+ 237               	.LM13:
+ 238 0024 F12C      		mov r15,__zero_reg__
+ 239 0026 00C0      		rjmp .L4
+ 240               	.L19:
+ 180:main.c        ****         place = get_place(writer);
+ 242               	.LM14:
+ 243 0028 FF24      		clr r15
+ 244 002a F394      		inc r15
+ 245               	.L4:
+ 246               	.LBB20:
+ 247               	.LBB21:
+ 151:main.c        **** }
+ 249               	.LM15:
+ 250 002c 8C2F      		mov r24,r28
+ 251 002e 8770      		andi r24,lo8(7)
+ 252 0030 EC2F      		mov r30,r28
+ 253 0032 E695      		lsr r30
+ 254 0034 E695      		lsr r30
+ 255 0036 E695      		lsr r30
+ 256 0038 F0E0      		ldi r31,0
+ 257               	.LBE21:
+ 258               	.LBE20:
+ 184:main.c        ****         }
+ 260               	.LM16:
+ 261 003a E050      		subi r30,lo8(-(cirular_buffer))
+ 262 003c F040      		sbci r31,hi8(-(cirular_buffer))
+ 263 003e 9801      		movw r18,r16
+ 264 0040 00C0      		rjmp 2f
+ 265               		1:
+ 266 0042 220F      		lsl r18
+ 267 0044 331F      		rol r19
+ 268               		2:
+ 269 0046 8A95      		dec r24
+ 270 0048 02F4      		brpl 1b
+ 271 004a C901      		movw r24,r18
+ 183:main.c        ****             cirular_buffer[place] |= _BV(bit);
+ 273               	.LM17:
+ 274 004c 3499      		sbic 0x6,4
+ 275 004e 00C0      		rjmp .L5
+ 184:main.c        ****         }
+ 277               	.LM18:
+ 278 0050 9081      		ld r25,Z
+ 279 0052 892B      		or r24,r25
+ 280 0054 00C0      		rjmp .L17
+ 281               	.L5:
+ 283               	.LM19:
+ 284 0056 8095      		com r24
+ 285 0058 9081      		ld r25,Z
+ 286 005a 8923      		and r24,r25
+ 287               	.L17:
+ 288 005c 8083      		st Z,r24
+ 188:main.c        ****         }
+ 189:main.c        ****         writer++;
+ 290               	.LM20:
+ 291 005e CF5F      		subi r28,lo8(-(1))
+ 190:main.c        ****         if(crossed_100){
+ 293               	.LM21:
+ 294 0060 FF20      		tst r15
+ 295 0062 01F0      		breq .L7
+ 191:main.c        ****             place = get_place(reader);
+ 192:main.c        ****             bit = get_bit(reader);
+ 193:main.c        ****             light(cirular_buffer[place]&_BV(bit));
+ 297               	.LM22:
+ 298 0064 ED2F      		mov r30,r29
+ 299 0066 E695      		lsr r30
+ 300 0068 E695      		lsr r30
+ 301 006a E695      		lsr r30
+ 302 006c F0E0      		ldi r31,0
+ 303 006e E050      		subi r30,lo8(-(cirular_buffer))
+ 304 0070 F040      		sbci r31,hi8(-(cirular_buffer))
+ 305               	.LBB22:
+ 306               	.LBB23:
+ 155:main.c        ****         LED_PORT2 |= _BV(LED);
+ 308               	.LM23:
+ 309 0072 8D2F      		mov r24,r29
+ 310 0074 8770      		andi r24,lo8(7)
+ 311 0076 9801      		movw r18,r16
+ 312 0078 00C0      		rjmp 2f
+ 313               		1:
+ 314 007a 220F      		lsl r18
+ 315 007c 331F      		rol r19
+ 316               		2:
+ 317 007e 8A95      		dec r24
+ 318 0080 02F4      		brpl 1b
+ 319 0082 C901      		movw r24,r18
+ 320 0084 9081      		ld r25,Z
+ 321 0086 8923      		and r24,r25
+ 322 0088 01F0      		breq .L8
+ 156:main.c        ****     else
+ 324               	.LM24:
+ 325 008a 299A      		sbi 0x5,1
+ 326 008c 00C0      		rjmp .L9
+ 327               	.L8:
+ 158:main.c        **** }
+ 329               	.LM25:
+ 330 008e 2998      		cbi 0x5,1
+ 331               	.L9:
+ 332               	.LBE23:
+ 333               	.LBE22:
+ 194:main.c        ****             reader++;
+ 335               	.LM26:
+ 336 0090 DF5F      		subi r29,lo8(-(1))
+ 337               	.L7:
+ 195:main.c        ****         }
+ 196:main.c        ****         vTaskDelay(10/portTICK_PERIOD_MS);
+ 339               	.LM27:
+ 340 0092 8AE0      		ldi r24,lo8(10)
+ 341 0094 90E0      		ldi r25,0
+ 342 0096 0E94 0000 		call vTaskDelay
+ 175:main.c        ****             reader = 0;
+ 344               	.LM28:
+ 345 009a DF3F      		cpi r29,lo8(-1)
+ 346 009c 01F0      		breq .+2
+ 347 009e 00C0      		rjmp .L2
+ 176:main.c        ****         if(writer == 255)
+ 349               	.LM29:
+ 350 00a0 D0E0      		ldi r29,0
+ 351 00a2 00C0      		rjmp .L2
+ 358               	.Lscope1:
+ 360               		.stabd	78,0,0
+ 364               	vLED_counter:
+ 365               		.stabd	46,0,0
+ 114:main.c        ****     static uint8_t counter = 0;
+ 367               	.LM30:
+ 368               	.LFBB2:
+ 369               	/* prologue: function */
+ 370               	/* frame size = 0 */
+ 371               	/* stack size = 0 */
+ 372               	.L__stack_usage = 0
+ 116:main.c        ****     LED_PORT = 0xff;
+ 374               	.LM31:
+ 375 00a4 8FEF      		ldi r24,lo8(-1)
+ 376 00a6 8AB9      		out 0xa,r24
+ 117:main.c        ****     while(1){
+ 378               	.LM32:
+ 379 00a8 8BB9      		out 0xb,r24
+ 120:main.c        ****         vTaskDelay(1000/portTICK_PERIOD_MS);
+ 381               	.LM33:
+ 382 00aa CAE0      		ldi r28,lo8(10)
+ 383               	.L21:
+ 119:main.c        ****         counter %= 10;
+ 385               	.LM34:
+ 386 00ac E091 0000 		lds r30,counter.2136
+ 387 00b0 81E0      		ldi r24,lo8(1)
+ 388 00b2 8E0F      		add r24,r30
+ 389 00b4 8093 0000 		sts counter.2136,r24
+ 390 00b8 F0E0      		ldi r31,0
+ 391 00ba EE0F      		lsl r30
+ 392 00bc FF1F      		rol r31
+ 393 00be E050      		subi r30,lo8(-(LED_DIGITS))
+ 394 00c0 F040      		sbci r31,hi8(-(LED_DIGITS))
+ 395 00c2 8081      		ld r24,Z
+ 396 00c4 8BB9      		out 0xb,r24
+ 120:main.c        ****         vTaskDelay(1000/portTICK_PERIOD_MS);
+ 398               	.LM35:
+ 399 00c6 8091 0000 		lds r24,counter.2136
+ 400 00ca 6C2F      		mov r22,r28
+ 401 00cc 0E94 0000 		call __udivmodqi4
+ 402 00d0 9093 0000 		sts counter.2136,r25
+ 121:main.c        ****         // vTaskDelay(500/portTICK_PERIOD_MS);
+ 404               	.LM36:
+ 405 00d4 88EE      		ldi r24,lo8(-24)
+ 406 00d6 93E0      		ldi r25,lo8(3)
+ 407 00d8 0E94 0000 		call vTaskDelay
+ 408 00dc 00C0      		rjmp .L21
+ 413               	.Lscope2:
+ 415               		.stabd	78,0,0
+ 416               		.section	.rodata.str1.1,"aMS",@progbits,1
+ 417               	.LC0:
+ 418 0000 626C 696E 		.string	"blink"
+ 418      6B00 
+ 419               	.LC1:
+ 420 0006 7365 7269 		.string	"serial"
+ 420      616C 00
+ 421               		.section	.text.startup,"ax",@progbits
+ 423               	.global	main
+ 425               	main:
+ 426               		.stabd	46,0,0
+  44:main.c        ****     // Create task.
+ 428               	.LM37:
+ 429               	.LFBB3:
+ 430 0000 EF92      		push r14
+ 431 0002 FF92      		push r15
+ 432 0004 0F93      		push r16
+ 433 0006 CF93      		push r28
+ 434 0008 DF93      		push r29
+ 435 000a 00D0      		rcall .
+ 436 000c 00D0      		rcall .
+ 437 000e CDB7      		in r28,__SP_L__
+ 438 0010 DEB7      		in r29,__SP_H__
+ 439               	/* prologue: function */
+ 440               	/* frame size = 4 */
+ 441               	/* stack size = 9 */
+ 442               	.L__stack_usage = 9
+  49:main.c        ****         (
+ 444               	.LM38:
+ 445 0012 CE01      		movw r24,r28
+ 446 0014 0396      		adiw r24,3
+ 447 0016 7C01      		movw r14,r24
+ 448 0018 02E0      		ldi r16,lo8(2)
+ 449 001a 20E0      		ldi r18,0
+ 450 001c 30E0      		ldi r19,0
+ 451 001e 45E5      		ldi r20,lo8(85)
+ 452 0020 50E0      		ldi r21,0
+ 453 0022 60E0      		ldi r22,lo8(.LC0)
+ 454 0024 70E0      		ldi r23,hi8(.LC0)
+ 455 0026 80E0      		ldi r24,lo8(gs(vLED_counter))
+ 456 0028 90E0      		ldi r25,hi8(gs(vLED_counter))
+ 457 002a 0E94 0000 		call xTaskCreate
+  59:main.c        ****         (
+ 459               	.LM39:
+ 460 002e CE01      		movw r24,r28
+ 461 0030 0196      		adiw r24,1
+ 462 0032 7C01      		movw r14,r24
+ 463 0034 01E0      		ldi r16,lo8(1)
+ 464 0036 20E0      		ldi r18,0
+ 465 0038 30E0      		ldi r19,0
+ 466 003a 45E5      		ldi r20,lo8(85)
+ 467 003c 50E0      		ldi r21,0
+ 468 003e 60E0      		ldi r22,lo8(.LC1)
+ 469 0040 70E0      		ldi r23,hi8(.LC1)
+ 470 0042 80E0      		ldi r24,lo8(gs(vButton))
+ 471 0044 90E0      		ldi r25,hi8(gs(vButton))
+ 472 0046 0E94 0000 		call xTaskCreate
+  70:main.c        **** 
+ 474               	.LM40:
+ 475 004a 0E94 0000 		call vTaskStartScheduler
+  73:main.c        **** 
+ 477               	.LM41:
+ 478 004e 80E0      		ldi r24,0
+ 479 0050 90E0      		ldi r25,0
+ 480               	/* epilogue start */
+ 481 0052 0F90      		pop __tmp_reg__
+ 482 0054 0F90      		pop __tmp_reg__
+ 483 0056 0F90      		pop __tmp_reg__
+ 484 0058 0F90      		pop __tmp_reg__
+ 485 005a DF91      		pop r29
+ 486 005c CF91      		pop r28
+ 487 005e 0F91      		pop r16
+ 488 0060 FF90      		pop r15
+ 489 0062 EF90      		pop r14
+ 490 0064 0895      		ret
+ 496               	.Lscope3:
+ 498               		.stabd	78,0,0
+ 499               		.text
+ 501               	.global	vApplicationIdleHook
+ 503               	vApplicationIdleHook:
+ 504               		.stabd	46,0,0
+  81:main.c        **** 
+ 506               	.LM42:
+ 507               	.LFBB4:
+ 508               	/* prologue: function */
+ 509               	/* frame size = 0 */
+ 510               	/* stack size = 0 */
+ 511               	.L__stack_usage = 0
+ 512 00de 0895      		ret
+ 514               	.Lscope4:
+ 516               		.stabd	78,0,0
+ 517               		.local	counter.2136
+ 518               		.comm	counter.2136,1,1
+ 519               		.local	cirular_buffer
+ 520               		.comm	cirular_buffer,32,1
+ 521               		.section	.rodata
+ 524               	LED_DIGITS:
+ 525 0000 C000      		.word	192
+ 526 0002 F900      		.word	249
+ 527 0004 A400      		.word	164
+ 528 0006 B000      		.word	176
+ 529 0008 9900      		.word	153
+ 530 000a 9200      		.word	146
+ 531 000c 8200      		.word	130
+ 532 000e F800      		.word	248
+ 533 0010 8000      		.word	128
+ 534 0012 9000      		.word	144
+ 537               		.text
+ 539               	.Letext0:
+ 540               		.ident	"GCC: (GNU) 5.4.0"
+ 541               	.global __do_copy_data
+ 542               	.global __do_clear_bss
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 main.c
+     /tmp/ccUCDlQF.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccUCDlQF.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccUCDlQF.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccUCDlQF.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccUCDlQF.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccUCDlQF.s:182    .text:0000000000000000 vButton
+     /tmp/ccUCDlQF.s:518    .bss:0000000000000001 cirular_buffer
+     /tmp/ccUCDlQF.s:364    .text:00000000000000a4 vLED_counter
+                             .bss:0000000000000000 counter.2136
+     /tmp/ccUCDlQF.s:524    .rodata:0000000000000000 LED_DIGITS
+     /tmp/ccUCDlQF.s:425    .text.startup:0000000000000000 main
+     /tmp/ccUCDlQF.s:503    .text:00000000000000de vApplicationIdleHook
+
+UNDEFINED SYMBOLS
+vTaskDelay
+__udivmodqi4
+xTaskCreate
+vTaskStartScheduler
+__do_copy_data
+__do_clear_bss

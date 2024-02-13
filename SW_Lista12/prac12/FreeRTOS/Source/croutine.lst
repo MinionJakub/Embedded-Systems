@@ -1,0 +1,1039 @@
+   1               		.file	"croutine.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   9               		.text
+  10               	.Ltext0:
+ 176               	.global	xCoRoutineCreate
+ 178               	xCoRoutineCreate:
+ 179               		.stabd	46,0,0
+   1:FreeRTOS/Source/croutine.c **** /*
+   2:FreeRTOS/Source/croutine.c ****  * FreeRTOS Kernel V10.1.1
+   3:FreeRTOS/Source/croutine.c ****  * Copyright (C) 2018 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+   4:FreeRTOS/Source/croutine.c ****  *
+   5:FreeRTOS/Source/croutine.c ****  * Permission is hereby granted, free of charge, to any person obtaining a copy of
+   6:FreeRTOS/Source/croutine.c ****  * this software and associated documentation files (the "Software"), to deal in
+   7:FreeRTOS/Source/croutine.c ****  * the Software without restriction, including without limitation the rights to
+   8:FreeRTOS/Source/croutine.c ****  * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+   9:FreeRTOS/Source/croutine.c ****  * the Software, and to permit persons to whom the Software is furnished to do so,
+  10:FreeRTOS/Source/croutine.c ****  * subject to the following conditions:
+  11:FreeRTOS/Source/croutine.c ****  *
+  12:FreeRTOS/Source/croutine.c ****  * The above copyright notice and this permission notice shall be included in all
+  13:FreeRTOS/Source/croutine.c ****  * copies or substantial portions of the Software.
+  14:FreeRTOS/Source/croutine.c ****  *
+  15:FreeRTOS/Source/croutine.c ****  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  16:FreeRTOS/Source/croutine.c ****  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+  17:FreeRTOS/Source/croutine.c ****  * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+  18:FreeRTOS/Source/croutine.c ****  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+  19:FreeRTOS/Source/croutine.c ****  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+  20:FreeRTOS/Source/croutine.c ****  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  21:FreeRTOS/Source/croutine.c ****  *
+  22:FreeRTOS/Source/croutine.c ****  * http://www.FreeRTOS.org
+  23:FreeRTOS/Source/croutine.c ****  * http://aws.amazon.com/freertos
+  24:FreeRTOS/Source/croutine.c ****  *
+  25:FreeRTOS/Source/croutine.c ****  * 1 tab == 4 spaces!
+  26:FreeRTOS/Source/croutine.c ****  */
+  27:FreeRTOS/Source/croutine.c **** 
+  28:FreeRTOS/Source/croutine.c **** #include "FreeRTOS.h"
+  29:FreeRTOS/Source/croutine.c **** #include "task.h"
+  30:FreeRTOS/Source/croutine.c **** #include "croutine.h"
+  31:FreeRTOS/Source/croutine.c **** 
+  32:FreeRTOS/Source/croutine.c **** /* Remove the whole file is co-routines are not being used. */
+  33:FreeRTOS/Source/croutine.c **** #if( configUSE_CO_ROUTINES != 0 )
+  34:FreeRTOS/Source/croutine.c **** 
+  35:FreeRTOS/Source/croutine.c **** /*
+  36:FreeRTOS/Source/croutine.c ****  * Some kernel aware debuggers require data to be viewed to be global, rather
+  37:FreeRTOS/Source/croutine.c ****  * than file scope.
+  38:FreeRTOS/Source/croutine.c ****  */
+  39:FreeRTOS/Source/croutine.c **** #ifdef portREMOVE_STATIC_QUALIFIER
+  40:FreeRTOS/Source/croutine.c **** 	#define static
+  41:FreeRTOS/Source/croutine.c **** #endif
+  42:FreeRTOS/Source/croutine.c **** 
+  43:FreeRTOS/Source/croutine.c **** 
+  44:FreeRTOS/Source/croutine.c **** /* Lists for ready and blocked co-routines. --------------------*/
+  45:FreeRTOS/Source/croutine.c **** static List_t pxReadyCoRoutineLists[ configMAX_CO_ROUTINE_PRIORITIES ];	/*< Prioritised ready co-ro
+  46:FreeRTOS/Source/croutine.c **** static List_t xDelayedCoRoutineList1;									/*< Delayed co-routines. */
+  47:FreeRTOS/Source/croutine.c **** static List_t xDelayedCoRoutineList2;									/*< Delayed co-routines (two lists are used - one for
+  48:FreeRTOS/Source/croutine.c **** static List_t * pxDelayedCoRoutineList;									/*< Points to the delayed co-routine list currently
+  49:FreeRTOS/Source/croutine.c **** static List_t * pxOverflowDelayedCoRoutineList;							/*< Points to the delayed co-routine list cur
+  50:FreeRTOS/Source/croutine.c **** static List_t xPendingReadyCoRoutineList;								/*< Holds co-routines that have been readied by an
+  51:FreeRTOS/Source/croutine.c **** 
+  52:FreeRTOS/Source/croutine.c **** /* Other file private variables. --------------------------------*/
+  53:FreeRTOS/Source/croutine.c **** CRCB_t * pxCurrentCoRoutine = NULL;
+  54:FreeRTOS/Source/croutine.c **** static UBaseType_t uxTopCoRoutineReadyPriority = 0;
+  55:FreeRTOS/Source/croutine.c **** static TickType_t xCoRoutineTickCount = 0, xLastTickCount = 0, xPassedTicks = 0;
+  56:FreeRTOS/Source/croutine.c **** 
+  57:FreeRTOS/Source/croutine.c **** /* The initial state of the co-routine when it is created. */
+  58:FreeRTOS/Source/croutine.c **** #define corINITIAL_STATE	( 0 )
+  59:FreeRTOS/Source/croutine.c **** 
+  60:FreeRTOS/Source/croutine.c **** /*
+  61:FreeRTOS/Source/croutine.c ****  * Place the co-routine represented by pxCRCB into the appropriate ready queue
+  62:FreeRTOS/Source/croutine.c ****  * for the priority.  It is inserted at the end of the list.
+  63:FreeRTOS/Source/croutine.c ****  *
+  64:FreeRTOS/Source/croutine.c ****  * This macro accesses the co-routine ready lists and therefore must not be
+  65:FreeRTOS/Source/croutine.c ****  * used from within an ISR.
+  66:FreeRTOS/Source/croutine.c ****  */
+  67:FreeRTOS/Source/croutine.c **** #define prvAddCoRoutineToReadyQueue( pxCRCB )																		\
+  68:FreeRTOS/Source/croutine.c **** {																													\
+  69:FreeRTOS/Source/croutine.c **** 	if( pxCRCB->uxPriority > uxTopCoRoutineReadyPriority )															\
+  70:FreeRTOS/Source/croutine.c **** 	{																												\
+  71:FreeRTOS/Source/croutine.c **** 		uxTopCoRoutineReadyPriority = pxCRCB->uxPriority;															\
+  72:FreeRTOS/Source/croutine.c **** 	}																												\
+  73:FreeRTOS/Source/croutine.c **** 	vListInsertEnd( ( List_t * ) &( pxReadyCoRoutineLists[ pxCRCB->uxPriority ] ), &( pxCRCB->xGeneric
+  74:FreeRTOS/Source/croutine.c **** }
+  75:FreeRTOS/Source/croutine.c **** 
+  76:FreeRTOS/Source/croutine.c **** /*
+  77:FreeRTOS/Source/croutine.c ****  * Utility to ready all the lists used by the scheduler.  This is called
+  78:FreeRTOS/Source/croutine.c ****  * automatically upon the creation of the first co-routine.
+  79:FreeRTOS/Source/croutine.c ****  */
+  80:FreeRTOS/Source/croutine.c **** static void prvInitialiseCoRoutineLists( void );
+  81:FreeRTOS/Source/croutine.c **** 
+  82:FreeRTOS/Source/croutine.c **** /*
+  83:FreeRTOS/Source/croutine.c ****  * Co-routines that are readied by an interrupt cannot be placed directly into
+  84:FreeRTOS/Source/croutine.c ****  * the ready lists (there is no mutual exclusion).  Instead they are placed in
+  85:FreeRTOS/Source/croutine.c ****  * in the pending ready list in order that they can later be moved to the ready
+  86:FreeRTOS/Source/croutine.c ****  * list by the co-routine scheduler.
+  87:FreeRTOS/Source/croutine.c ****  */
+  88:FreeRTOS/Source/croutine.c **** static void prvCheckPendingReadyList( void );
+  89:FreeRTOS/Source/croutine.c **** 
+  90:FreeRTOS/Source/croutine.c **** /*
+  91:FreeRTOS/Source/croutine.c ****  * Macro that looks at the list of co-routines that are currently delayed to
+  92:FreeRTOS/Source/croutine.c ****  * see if any require waking.
+  93:FreeRTOS/Source/croutine.c ****  *
+  94:FreeRTOS/Source/croutine.c ****  * Co-routines are stored in the queue in the order of their wake time -
+  95:FreeRTOS/Source/croutine.c ****  * meaning once one co-routine has been found whose timer has not expired
+  96:FreeRTOS/Source/croutine.c ****  * we need not look any further down the list.
+  97:FreeRTOS/Source/croutine.c ****  */
+  98:FreeRTOS/Source/croutine.c **** static void prvCheckDelayedList( void );
+  99:FreeRTOS/Source/croutine.c **** 
+ 100:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 101:FreeRTOS/Source/croutine.c **** 
+ 102:FreeRTOS/Source/croutine.c **** BaseType_t xCoRoutineCreate( crCOROUTINE_CODE pxCoRoutineCode, UBaseType_t uxPriority, UBaseType_t 
+ 103:FreeRTOS/Source/croutine.c **** {
+ 181               	.LM0:
+ 182               	.LFBB1:
+ 183 0000 CF92      		push r12
+ 184 0002 DF92      		push r13
+ 185 0004 EF92      		push r14
+ 186 0006 FF92      		push r15
+ 187 0008 1F93      		push r17
+ 188 000a CF93      		push r28
+ 189 000c DF93      		push r29
+ 190               	/* prologue: function */
+ 191               	/* frame size = 0 */
+ 192               	/* stack size = 7 */
+ 193               	.L__stack_usage = 7
+ 194 000e 6C01      		movw r12,r24
+ 195 0010 162F      		mov r17,r22
+ 196 0012 F42E      		mov r15,r20
+ 104:FreeRTOS/Source/croutine.c **** BaseType_t xReturn;
+ 105:FreeRTOS/Source/croutine.c **** CRCB_t *pxCoRoutine;
+ 106:FreeRTOS/Source/croutine.c **** 
+ 107:FreeRTOS/Source/croutine.c **** 	/* Allocate the memory that will store the co-routine control block. */
+ 108:FreeRTOS/Source/croutine.c **** 	pxCoRoutine = ( CRCB_t * ) pvPortMalloc( sizeof( CRCB_t ) );
+ 198               	.LM1:
+ 199 0014 8AE1      		ldi r24,lo8(26)
+ 200 0016 90E0      		ldi r25,0
+ 201 0018 0E94 0000 		call pvPortMalloc
+ 202 001c EC01      		movw r28,r24
+ 109:FreeRTOS/Source/croutine.c **** 	if( pxCoRoutine )
+ 204               	.LM2:
+ 205 001e 892B      		or r24,r25
+ 206 0020 01F4      		brne .+2
+ 207 0022 00C0      		rjmp .L6
+ 110:FreeRTOS/Source/croutine.c **** 	{
+ 111:FreeRTOS/Source/croutine.c **** 		/* If pxCurrentCoRoutine is NULL then this is the first co-routine to
+ 112:FreeRTOS/Source/croutine.c **** 		be created and the co-routine data structures need initialising. */
+ 113:FreeRTOS/Source/croutine.c **** 		if( pxCurrentCoRoutine == NULL )
+ 209               	.LM3:
+ 210 0024 8091 0000 		lds r24,pxCurrentCoRoutine
+ 211 0028 9091 0000 		lds r25,pxCurrentCoRoutine+1
+ 212 002c 892B      		or r24,r25
+ 213 002e 01F4      		brne .L3
+ 114:FreeRTOS/Source/croutine.c **** 		{
+ 115:FreeRTOS/Source/croutine.c **** 			pxCurrentCoRoutine = pxCoRoutine;
+ 215               	.LM4:
+ 216 0030 D093 0000 		sts pxCurrentCoRoutine+1,r29
+ 217 0034 C093 0000 		sts pxCurrentCoRoutine,r28
+ 218               	.LBB4:
+ 219               	.LBB5:
+ 116:FreeRTOS/Source/croutine.c **** 			prvInitialiseCoRoutineLists();
+ 117:FreeRTOS/Source/croutine.c **** 		}
+ 118:FreeRTOS/Source/croutine.c **** 
+ 119:FreeRTOS/Source/croutine.c **** 		/* Check the priority is within limits. */
+ 120:FreeRTOS/Source/croutine.c **** 		if( uxPriority >= configMAX_CO_ROUTINE_PRIORITIES )
+ 121:FreeRTOS/Source/croutine.c **** 		{
+ 122:FreeRTOS/Source/croutine.c **** 			uxPriority = configMAX_CO_ROUTINE_PRIORITIES - 1;
+ 123:FreeRTOS/Source/croutine.c **** 		}
+ 124:FreeRTOS/Source/croutine.c **** 
+ 125:FreeRTOS/Source/croutine.c **** 		/* Fill out the co-routine control block from the function parameters. */
+ 126:FreeRTOS/Source/croutine.c **** 		pxCoRoutine->uxState = corINITIAL_STATE;
+ 127:FreeRTOS/Source/croutine.c **** 		pxCoRoutine->uxPriority = uxPriority;
+ 128:FreeRTOS/Source/croutine.c **** 		pxCoRoutine->uxIndex = uxIndex;
+ 129:FreeRTOS/Source/croutine.c **** 		pxCoRoutine->pxCoRoutineFunction = pxCoRoutineCode;
+ 130:FreeRTOS/Source/croutine.c **** 
+ 131:FreeRTOS/Source/croutine.c **** 		/* Initialise all the other co-routine control block parameters. */
+ 132:FreeRTOS/Source/croutine.c **** 		vListInitialiseItem( &( pxCoRoutine->xGenericListItem ) );
+ 133:FreeRTOS/Source/croutine.c **** 		vListInitialiseItem( &( pxCoRoutine->xEventListItem ) );
+ 134:FreeRTOS/Source/croutine.c **** 
+ 135:FreeRTOS/Source/croutine.c **** 		/* Set the co-routine control block as a link back from the ListItem_t.
+ 136:FreeRTOS/Source/croutine.c **** 		This is so we can get back to the containing CRCB from a generic item
+ 137:FreeRTOS/Source/croutine.c **** 		in a list. */
+ 138:FreeRTOS/Source/croutine.c **** 		listSET_LIST_ITEM_OWNER( &( pxCoRoutine->xGenericListItem ), pxCoRoutine );
+ 139:FreeRTOS/Source/croutine.c **** 		listSET_LIST_ITEM_OWNER( &( pxCoRoutine->xEventListItem ), pxCoRoutine );
+ 140:FreeRTOS/Source/croutine.c **** 
+ 141:FreeRTOS/Source/croutine.c **** 		/* Event lists are always in priority order. */
+ 142:FreeRTOS/Source/croutine.c **** 		listSET_LIST_ITEM_VALUE( &( pxCoRoutine->xEventListItem ), ( ( TickType_t ) configMAX_CO_ROUTINE_
+ 143:FreeRTOS/Source/croutine.c **** 
+ 144:FreeRTOS/Source/croutine.c **** 		/* Now the co-routine has been initialised it can be added to the ready
+ 145:FreeRTOS/Source/croutine.c **** 		list at the correct priority. */
+ 146:FreeRTOS/Source/croutine.c **** 		prvAddCoRoutineToReadyQueue( pxCoRoutine );
+ 147:FreeRTOS/Source/croutine.c **** 
+ 148:FreeRTOS/Source/croutine.c **** 		xReturn = pdPASS;
+ 149:FreeRTOS/Source/croutine.c **** 	}
+ 150:FreeRTOS/Source/croutine.c **** 	else
+ 151:FreeRTOS/Source/croutine.c **** 	{
+ 152:FreeRTOS/Source/croutine.c **** 		xReturn = errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY;
+ 153:FreeRTOS/Source/croutine.c **** 	}
+ 154:FreeRTOS/Source/croutine.c **** 
+ 155:FreeRTOS/Source/croutine.c **** 	return xReturn;
+ 156:FreeRTOS/Source/croutine.c **** }
+ 157:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 158:FreeRTOS/Source/croutine.c **** 
+ 159:FreeRTOS/Source/croutine.c **** void vCoRoutineAddToDelayedList( TickType_t xTicksToDelay, List_t *pxEventList )
+ 160:FreeRTOS/Source/croutine.c **** {
+ 161:FreeRTOS/Source/croutine.c **** TickType_t xTimeToWake;
+ 162:FreeRTOS/Source/croutine.c **** 
+ 163:FreeRTOS/Source/croutine.c **** 	/* Calculate the time to wake - this may overflow but this is
+ 164:FreeRTOS/Source/croutine.c **** 	not a problem. */
+ 165:FreeRTOS/Source/croutine.c **** 	xTimeToWake = xCoRoutineTickCount + xTicksToDelay;
+ 166:FreeRTOS/Source/croutine.c **** 
+ 167:FreeRTOS/Source/croutine.c **** 	/* We must remove ourselves from the ready list before adding
+ 168:FreeRTOS/Source/croutine.c **** 	ourselves to the blocked list as the same list item is used for
+ 169:FreeRTOS/Source/croutine.c **** 	both lists. */
+ 170:FreeRTOS/Source/croutine.c **** 	( void ) uxListRemove( ( ListItem_t * ) &( pxCurrentCoRoutine->xGenericListItem ) );
+ 171:FreeRTOS/Source/croutine.c **** 
+ 172:FreeRTOS/Source/croutine.c **** 	/* The list item will be inserted in wake time order. */
+ 173:FreeRTOS/Source/croutine.c **** 	listSET_LIST_ITEM_VALUE( &( pxCurrentCoRoutine->xGenericListItem ), xTimeToWake );
+ 174:FreeRTOS/Source/croutine.c **** 
+ 175:FreeRTOS/Source/croutine.c **** 	if( xTimeToWake < xCoRoutineTickCount )
+ 176:FreeRTOS/Source/croutine.c **** 	{
+ 177:FreeRTOS/Source/croutine.c **** 		/* Wake time has overflowed.  Place this item in the
+ 178:FreeRTOS/Source/croutine.c **** 		overflow list. */
+ 179:FreeRTOS/Source/croutine.c **** 		vListInsert( ( List_t * ) pxOverflowDelayedCoRoutineList, ( ListItem_t * ) &( pxCurrentCoRoutine-
+ 180:FreeRTOS/Source/croutine.c **** 	}
+ 181:FreeRTOS/Source/croutine.c **** 	else
+ 182:FreeRTOS/Source/croutine.c **** 	{
+ 183:FreeRTOS/Source/croutine.c **** 		/* The wake time has not overflowed, so we can use the
+ 184:FreeRTOS/Source/croutine.c **** 		current block list. */
+ 185:FreeRTOS/Source/croutine.c **** 		vListInsert( ( List_t * ) pxDelayedCoRoutineList, ( ListItem_t * ) &( pxCurrentCoRoutine->xGeneri
+ 186:FreeRTOS/Source/croutine.c **** 	}
+ 187:FreeRTOS/Source/croutine.c **** 
+ 188:FreeRTOS/Source/croutine.c **** 	if( pxEventList )
+ 189:FreeRTOS/Source/croutine.c **** 	{
+ 190:FreeRTOS/Source/croutine.c **** 		/* Also add the co-routine to an event list.  If this is done then the
+ 191:FreeRTOS/Source/croutine.c **** 		function must be called with interrupts disabled. */
+ 192:FreeRTOS/Source/croutine.c **** 		vListInsert( pxEventList, &( pxCurrentCoRoutine->xEventListItem ) );
+ 193:FreeRTOS/Source/croutine.c **** 	}
+ 194:FreeRTOS/Source/croutine.c **** }
+ 195:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 196:FreeRTOS/Source/croutine.c **** 
+ 197:FreeRTOS/Source/croutine.c **** static void prvCheckPendingReadyList( void )
+ 198:FreeRTOS/Source/croutine.c **** {
+ 199:FreeRTOS/Source/croutine.c **** 	/* Are there any co-routines waiting to get moved to the ready list?  These
+ 200:FreeRTOS/Source/croutine.c **** 	are co-routines that have been readied by an ISR.  The ISR cannot access
+ 201:FreeRTOS/Source/croutine.c **** 	the	ready lists itself. */
+ 202:FreeRTOS/Source/croutine.c **** 	while( listLIST_IS_EMPTY( &xPendingReadyCoRoutineList ) == pdFALSE )
+ 203:FreeRTOS/Source/croutine.c **** 	{
+ 204:FreeRTOS/Source/croutine.c **** 		CRCB_t *pxUnblockedCRCB;
+ 205:FreeRTOS/Source/croutine.c **** 
+ 206:FreeRTOS/Source/croutine.c **** 		/* The pending ready list can be accessed by an ISR. */
+ 207:FreeRTOS/Source/croutine.c **** 		portDISABLE_INTERRUPTS();
+ 208:FreeRTOS/Source/croutine.c **** 		{
+ 209:FreeRTOS/Source/croutine.c **** 			pxUnblockedCRCB = ( CRCB_t * ) listGET_OWNER_OF_HEAD_ENTRY( (&xPendingReadyCoRoutineList) );
+ 210:FreeRTOS/Source/croutine.c **** 			( void ) uxListRemove( &( pxUnblockedCRCB->xEventListItem ) );
+ 211:FreeRTOS/Source/croutine.c **** 		}
+ 212:FreeRTOS/Source/croutine.c **** 		portENABLE_INTERRUPTS();
+ 213:FreeRTOS/Source/croutine.c **** 
+ 214:FreeRTOS/Source/croutine.c **** 		( void ) uxListRemove( &( pxUnblockedCRCB->xGenericListItem ) );
+ 215:FreeRTOS/Source/croutine.c **** 		prvAddCoRoutineToReadyQueue( pxUnblockedCRCB );
+ 216:FreeRTOS/Source/croutine.c **** 	}
+ 217:FreeRTOS/Source/croutine.c **** }
+ 218:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 219:FreeRTOS/Source/croutine.c **** 
+ 220:FreeRTOS/Source/croutine.c **** static void prvCheckDelayedList( void )
+ 221:FreeRTOS/Source/croutine.c **** {
+ 222:FreeRTOS/Source/croutine.c **** CRCB_t *pxCRCB;
+ 223:FreeRTOS/Source/croutine.c **** 
+ 224:FreeRTOS/Source/croutine.c **** 	xPassedTicks = xTaskGetTickCount() - xLastTickCount;
+ 225:FreeRTOS/Source/croutine.c **** 	while( xPassedTicks )
+ 226:FreeRTOS/Source/croutine.c **** 	{
+ 227:FreeRTOS/Source/croutine.c **** 		xCoRoutineTickCount++;
+ 228:FreeRTOS/Source/croutine.c **** 		xPassedTicks--;
+ 229:FreeRTOS/Source/croutine.c **** 
+ 230:FreeRTOS/Source/croutine.c **** 		/* If the tick count has overflowed we need to swap the ready lists. */
+ 231:FreeRTOS/Source/croutine.c **** 		if( xCoRoutineTickCount == 0 )
+ 232:FreeRTOS/Source/croutine.c **** 		{
+ 233:FreeRTOS/Source/croutine.c **** 			List_t * pxTemp;
+ 234:FreeRTOS/Source/croutine.c **** 
+ 235:FreeRTOS/Source/croutine.c **** 			/* Tick count has overflowed so we need to swap the delay lists.  If there are
+ 236:FreeRTOS/Source/croutine.c **** 			any items in pxDelayedCoRoutineList here then there is an error! */
+ 237:FreeRTOS/Source/croutine.c **** 			pxTemp = pxDelayedCoRoutineList;
+ 238:FreeRTOS/Source/croutine.c **** 			pxDelayedCoRoutineList = pxOverflowDelayedCoRoutineList;
+ 239:FreeRTOS/Source/croutine.c **** 			pxOverflowDelayedCoRoutineList = pxTemp;
+ 240:FreeRTOS/Source/croutine.c **** 		}
+ 241:FreeRTOS/Source/croutine.c **** 
+ 242:FreeRTOS/Source/croutine.c **** 		/* See if this tick has made a timeout expire. */
+ 243:FreeRTOS/Source/croutine.c **** 		while( listLIST_IS_EMPTY( pxDelayedCoRoutineList ) == pdFALSE )
+ 244:FreeRTOS/Source/croutine.c **** 		{
+ 245:FreeRTOS/Source/croutine.c **** 			pxCRCB = ( CRCB_t * ) listGET_OWNER_OF_HEAD_ENTRY( pxDelayedCoRoutineList );
+ 246:FreeRTOS/Source/croutine.c **** 
+ 247:FreeRTOS/Source/croutine.c **** 			if( xCoRoutineTickCount < listGET_LIST_ITEM_VALUE( &( pxCRCB->xGenericListItem ) ) )
+ 248:FreeRTOS/Source/croutine.c **** 			{
+ 249:FreeRTOS/Source/croutine.c **** 				/* Timeout not yet expired. */
+ 250:FreeRTOS/Source/croutine.c **** 				break;
+ 251:FreeRTOS/Source/croutine.c **** 			}
+ 252:FreeRTOS/Source/croutine.c **** 
+ 253:FreeRTOS/Source/croutine.c **** 			portDISABLE_INTERRUPTS();
+ 254:FreeRTOS/Source/croutine.c **** 			{
+ 255:FreeRTOS/Source/croutine.c **** 				/* The event could have occurred just before this critical
+ 256:FreeRTOS/Source/croutine.c **** 				section.  If this is the case then the generic list item will
+ 257:FreeRTOS/Source/croutine.c **** 				have been moved to the pending ready list and the following
+ 258:FreeRTOS/Source/croutine.c **** 				line is still valid.  Also the pvContainer parameter will have
+ 259:FreeRTOS/Source/croutine.c **** 				been set to NULL so the following lines are also valid. */
+ 260:FreeRTOS/Source/croutine.c **** 				( void ) uxListRemove( &( pxCRCB->xGenericListItem ) );
+ 261:FreeRTOS/Source/croutine.c **** 
+ 262:FreeRTOS/Source/croutine.c **** 				/* Is the co-routine waiting on an event also? */
+ 263:FreeRTOS/Source/croutine.c **** 				if( pxCRCB->xEventListItem.pxContainer )
+ 264:FreeRTOS/Source/croutine.c **** 				{
+ 265:FreeRTOS/Source/croutine.c **** 					( void ) uxListRemove( &( pxCRCB->xEventListItem ) );
+ 266:FreeRTOS/Source/croutine.c **** 				}
+ 267:FreeRTOS/Source/croutine.c **** 			}
+ 268:FreeRTOS/Source/croutine.c **** 			portENABLE_INTERRUPTS();
+ 269:FreeRTOS/Source/croutine.c **** 
+ 270:FreeRTOS/Source/croutine.c **** 			prvAddCoRoutineToReadyQueue( pxCRCB );
+ 271:FreeRTOS/Source/croutine.c **** 		}
+ 272:FreeRTOS/Source/croutine.c **** 	}
+ 273:FreeRTOS/Source/croutine.c **** 
+ 274:FreeRTOS/Source/croutine.c **** 	xLastTickCount = xCoRoutineTickCount;
+ 275:FreeRTOS/Source/croutine.c **** }
+ 276:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 277:FreeRTOS/Source/croutine.c **** 
+ 278:FreeRTOS/Source/croutine.c **** void vCoRoutineSchedule( void )
+ 279:FreeRTOS/Source/croutine.c **** {
+ 280:FreeRTOS/Source/croutine.c **** 	/* See if any co-routines readied by events need moving to the ready lists. */
+ 281:FreeRTOS/Source/croutine.c **** 	prvCheckPendingReadyList();
+ 282:FreeRTOS/Source/croutine.c **** 
+ 283:FreeRTOS/Source/croutine.c **** 	/* See if any delayed co-routines have timed out. */
+ 284:FreeRTOS/Source/croutine.c **** 	prvCheckDelayedList();
+ 285:FreeRTOS/Source/croutine.c **** 
+ 286:FreeRTOS/Source/croutine.c **** 	/* Find the highest priority queue that contains ready co-routines. */
+ 287:FreeRTOS/Source/croutine.c **** 	while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) )
+ 288:FreeRTOS/Source/croutine.c **** 	{
+ 289:FreeRTOS/Source/croutine.c **** 		if( uxTopCoRoutineReadyPriority == 0 )
+ 290:FreeRTOS/Source/croutine.c **** 		{
+ 291:FreeRTOS/Source/croutine.c **** 			/* No more co-routines to check. */
+ 292:FreeRTOS/Source/croutine.c **** 			return;
+ 293:FreeRTOS/Source/croutine.c **** 		}
+ 294:FreeRTOS/Source/croutine.c **** 		--uxTopCoRoutineReadyPriority;
+ 295:FreeRTOS/Source/croutine.c **** 	}
+ 296:FreeRTOS/Source/croutine.c **** 
+ 297:FreeRTOS/Source/croutine.c **** 	/* listGET_OWNER_OF_NEXT_ENTRY walks through the list, so the co-routines
+ 298:FreeRTOS/Source/croutine.c **** 	 of the	same priority get an equal share of the processor time. */
+ 299:FreeRTOS/Source/croutine.c **** 	listGET_OWNER_OF_NEXT_ENTRY( pxCurrentCoRoutine, &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPrio
+ 300:FreeRTOS/Source/croutine.c **** 
+ 301:FreeRTOS/Source/croutine.c **** 	/* Call the co-routine. */
+ 302:FreeRTOS/Source/croutine.c **** 	( pxCurrentCoRoutine->pxCoRoutineFunction )( pxCurrentCoRoutine, pxCurrentCoRoutine->uxIndex );
+ 303:FreeRTOS/Source/croutine.c **** 
+ 304:FreeRTOS/Source/croutine.c **** 	return;
+ 305:FreeRTOS/Source/croutine.c **** }
+ 306:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 307:FreeRTOS/Source/croutine.c **** 
+ 308:FreeRTOS/Source/croutine.c **** static void prvInitialiseCoRoutineLists( void )
+ 309:FreeRTOS/Source/croutine.c **** {
+ 310:FreeRTOS/Source/croutine.c **** UBaseType_t uxPriority;
+ 311:FreeRTOS/Source/croutine.c **** 
+ 312:FreeRTOS/Source/croutine.c **** 	for( uxPriority = 0; uxPriority < configMAX_CO_ROUTINE_PRIORITIES; uxPriority++ )
+ 313:FreeRTOS/Source/croutine.c **** 	{
+ 314:FreeRTOS/Source/croutine.c **** 		vListInitialise( ( List_t * ) &( pxReadyCoRoutineLists[ uxPriority ] ) );
+ 221               	.LM5:
+ 222 0038 80E0      		ldi r24,lo8(pxReadyCoRoutineLists)
+ 223 003a 90E0      		ldi r25,hi8(pxReadyCoRoutineLists)
+ 224 003c 0E94 0000 		call vListInitialise
+ 225 0040 80E0      		ldi r24,lo8(pxReadyCoRoutineLists+9)
+ 226 0042 90E0      		ldi r25,hi8(pxReadyCoRoutineLists+9)
+ 227 0044 0E94 0000 		call vListInitialise
+ 315:FreeRTOS/Source/croutine.c **** 	}
+ 316:FreeRTOS/Source/croutine.c **** 
+ 317:FreeRTOS/Source/croutine.c **** 	vListInitialise( ( List_t * ) &xDelayedCoRoutineList1 );
+ 229               	.LM6:
+ 230 0048 80E0      		ldi r24,lo8(xDelayedCoRoutineList1)
+ 231 004a 90E0      		ldi r25,hi8(xDelayedCoRoutineList1)
+ 232 004c 0E94 0000 		call vListInitialise
+ 318:FreeRTOS/Source/croutine.c **** 	vListInitialise( ( List_t * ) &xDelayedCoRoutineList2 );
+ 234               	.LM7:
+ 235 0050 80E0      		ldi r24,lo8(xDelayedCoRoutineList2)
+ 236 0052 90E0      		ldi r25,hi8(xDelayedCoRoutineList2)
+ 237 0054 0E94 0000 		call vListInitialise
+ 319:FreeRTOS/Source/croutine.c **** 	vListInitialise( ( List_t * ) &xPendingReadyCoRoutineList );
+ 239               	.LM8:
+ 240 0058 80E0      		ldi r24,lo8(xPendingReadyCoRoutineList)
+ 241 005a 90E0      		ldi r25,hi8(xPendingReadyCoRoutineList)
+ 242 005c 0E94 0000 		call vListInitialise
+ 320:FreeRTOS/Source/croutine.c **** 
+ 321:FreeRTOS/Source/croutine.c **** 	/* Start with pxDelayedCoRoutineList using list1 and the
+ 322:FreeRTOS/Source/croutine.c **** 	pxOverflowDelayedCoRoutineList using list2. */
+ 323:FreeRTOS/Source/croutine.c **** 	pxDelayedCoRoutineList = &xDelayedCoRoutineList1;
+ 244               	.LM9:
+ 245 0060 80E0      		ldi r24,lo8(xDelayedCoRoutineList1)
+ 246 0062 90E0      		ldi r25,hi8(xDelayedCoRoutineList1)
+ 247 0064 9093 0000 		sts pxDelayedCoRoutineList+1,r25
+ 248 0068 8093 0000 		sts pxDelayedCoRoutineList,r24
+ 324:FreeRTOS/Source/croutine.c **** 	pxOverflowDelayedCoRoutineList = &xDelayedCoRoutineList2;
+ 250               	.LM10:
+ 251 006c 80E0      		ldi r24,lo8(xDelayedCoRoutineList2)
+ 252 006e 90E0      		ldi r25,hi8(xDelayedCoRoutineList2)
+ 253 0070 9093 0000 		sts pxOverflowDelayedCoRoutineList+1,r25
+ 254 0074 8093 0000 		sts pxOverflowDelayedCoRoutineList,r24
+ 255               	.L3:
+ 256 0078 1111      		cpse r17,__zero_reg__
+ 257 007a 11E0      		ldi r17,lo8(1)
+ 258               	.L4:
+ 259               	.LBE5:
+ 260               	.LBE4:
+ 126:FreeRTOS/Source/croutine.c **** 		pxCoRoutine->uxPriority = uxPriority;
+ 262               	.LM11:
+ 263 007c 198E      		std Y+25,__zero_reg__
+ 264 007e 188E      		std Y+24,__zero_reg__
+ 127:FreeRTOS/Source/croutine.c **** 		pxCoRoutine->uxIndex = uxIndex;
+ 266               	.LM12:
+ 267 0080 1E8B      		std Y+22,r17
+ 128:FreeRTOS/Source/croutine.c **** 		pxCoRoutine->pxCoRoutineFunction = pxCoRoutineCode;
+ 269               	.LM13:
+ 270 0082 FF8A      		std Y+23,r15
+ 129:FreeRTOS/Source/croutine.c **** 
+ 272               	.LM14:
+ 273 0084 FE01      		movw r30,r28
+ 274 0086 C192      		st Z+,r12
+ 275 0088 D192      		st Z+,r13
+ 276 008a 7F01      		movw r14,r30
+ 132:FreeRTOS/Source/croutine.c **** 		vListInitialiseItem( &( pxCoRoutine->xEventListItem ) );
+ 278               	.LM15:
+ 279 008c CF01      		movw r24,r30
+ 280 008e 0E94 0000 		call vListInitialiseItem
+ 133:FreeRTOS/Source/croutine.c **** 
+ 282               	.LM16:
+ 283 0092 CE01      		movw r24,r28
+ 284 0094 0C96      		adiw r24,12
+ 285 0096 0E94 0000 		call vListInitialiseItem
+ 138:FreeRTOS/Source/croutine.c **** 		listSET_LIST_ITEM_OWNER( &( pxCoRoutine->xEventListItem ), pxCoRoutine );
+ 287               	.LM17:
+ 288 009a D987      		std Y+9,r29
+ 289 009c C887      		std Y+8,r28
+ 139:FreeRTOS/Source/croutine.c **** 
+ 291               	.LM18:
+ 292 009e DB8B      		std Y+19,r29
+ 293 00a0 CA8B      		std Y+18,r28
+ 142:FreeRTOS/Source/croutine.c **** 
+ 295               	.LM19:
+ 296 00a2 82E0      		ldi r24,lo8(2)
+ 297 00a4 90E0      		ldi r25,0
+ 298 00a6 811B      		sub r24,r17
+ 299 00a8 9109      		sbc r25,__zero_reg__
+ 300 00aa 9D87      		std Y+13,r25
+ 301 00ac 8C87      		std Y+12,r24
+ 146:FreeRTOS/Source/croutine.c **** 
+ 303               	.LM20:
+ 304 00ae 8E89      		ldd r24,Y+22
+ 305 00b0 9091 0000 		lds r25,uxTopCoRoutineReadyPriority
+ 306 00b4 9817      		cp r25,r24
+ 307 00b6 00F4      		brsh .L5
+ 146:FreeRTOS/Source/croutine.c **** 
+ 309               	.LM21:
+ 310 00b8 8093 0000 		sts uxTopCoRoutineReadyPriority,r24
+ 311               	.L5:
+ 146:FreeRTOS/Source/croutine.c **** 
+ 313               	.LM22:
+ 314 00bc F9E0      		ldi r31,lo8(9)
+ 315 00be 8F9F      		mul r24,r31
+ 316 00c0 C001      		movw r24,r0
+ 317 00c2 1124      		clr __zero_reg__
+ 318 00c4 B701      		movw r22,r14
+ 319 00c6 8050      		subi r24,lo8(-(pxReadyCoRoutineLists))
+ 320 00c8 9040      		sbci r25,hi8(-(pxReadyCoRoutineLists))
+ 321 00ca 0E94 0000 		call vListInsertEnd
+ 148:FreeRTOS/Source/croutine.c **** 	}
+ 323               	.LM23:
+ 324 00ce 81E0      		ldi r24,lo8(1)
+ 325 00d0 00C0      		rjmp .L2
+ 326               	.L6:
+ 152:FreeRTOS/Source/croutine.c **** 	}
+ 328               	.LM24:
+ 329 00d2 8FEF      		ldi r24,lo8(-1)
+ 330               	.L2:
+ 331               	/* epilogue start */
+ 156:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 333               	.LM25:
+ 334 00d4 DF91      		pop r29
+ 335 00d6 CF91      		pop r28
+ 336 00d8 1F91      		pop r17
+ 337 00da FF90      		pop r15
+ 338 00dc EF90      		pop r14
+ 339 00de DF90      		pop r13
+ 340 00e0 CF90      		pop r12
+ 341 00e2 0895      		ret
+ 347               	.Lscope1:
+ 349               		.stabd	78,0,0
+ 353               	.global	vCoRoutineAddToDelayedList
+ 355               	vCoRoutineAddToDelayedList:
+ 356               		.stabd	46,0,0
+ 160:FreeRTOS/Source/croutine.c **** TickType_t xTimeToWake;
+ 358               	.LM26:
+ 359               	.LFBB2:
+ 360 00e4 0F93      		push r16
+ 361 00e6 1F93      		push r17
+ 362 00e8 CF93      		push r28
+ 363 00ea DF93      		push r29
+ 364               	/* prologue: function */
+ 365               	/* frame size = 0 */
+ 366               	/* stack size = 4 */
+ 367               	.L__stack_usage = 4
+ 368 00ec 8B01      		movw r16,r22
+ 165:FreeRTOS/Source/croutine.c **** 
+ 370               	.LM27:
+ 371 00ee C091 0000 		lds r28,xCoRoutineTickCount
+ 372 00f2 D091 0000 		lds r29,xCoRoutineTickCount+1
+ 373 00f6 C80F      		add r28,r24
+ 374 00f8 D91F      		adc r29,r25
+ 170:FreeRTOS/Source/croutine.c **** 
+ 376               	.LM28:
+ 377 00fa 8091 0000 		lds r24,pxCurrentCoRoutine
+ 378 00fe 9091 0000 		lds r25,pxCurrentCoRoutine+1
+ 379 0102 0296      		adiw r24,2
+ 380 0104 0E94 0000 		call uxListRemove
+ 173:FreeRTOS/Source/croutine.c **** 
+ 382               	.LM29:
+ 383 0108 E091 0000 		lds r30,pxCurrentCoRoutine
+ 384 010c F091 0000 		lds r31,pxCurrentCoRoutine+1
+ 385 0110 D383      		std Z+3,r29
+ 386 0112 C283      		std Z+2,r28
+ 175:FreeRTOS/Source/croutine.c **** 	{
+ 388               	.LM30:
+ 389 0114 8091 0000 		lds r24,xCoRoutineTickCount
+ 390 0118 9091 0000 		lds r25,xCoRoutineTickCount+1
+ 391 011c BF01      		movw r22,r30
+ 392 011e 6E5F      		subi r22,-2
+ 393 0120 7F4F      		sbci r23,-1
+ 394 0122 C817      		cp r28,r24
+ 395 0124 D907      		cpc r29,r25
+ 396 0126 00F4      		brsh .L12
+ 179:FreeRTOS/Source/croutine.c **** 	}
+ 398               	.LM31:
+ 399 0128 8091 0000 		lds r24,pxOverflowDelayedCoRoutineList
+ 400 012c 9091 0000 		lds r25,pxOverflowDelayedCoRoutineList+1
+ 401 0130 00C0      		rjmp .L15
+ 402               	.L12:
+ 185:FreeRTOS/Source/croutine.c **** 	}
+ 404               	.LM32:
+ 405 0132 8091 0000 		lds r24,pxDelayedCoRoutineList
+ 406 0136 9091 0000 		lds r25,pxDelayedCoRoutineList+1
+ 407               	.L15:
+ 408 013a 0E94 0000 		call vListInsert
+ 188:FreeRTOS/Source/croutine.c **** 	{
+ 410               	.LM33:
+ 411 013e 0115      		cp r16,__zero_reg__
+ 412 0140 1105      		cpc r17,__zero_reg__
+ 413 0142 01F0      		breq .L11
+ 192:FreeRTOS/Source/croutine.c **** 	}
+ 415               	.LM34:
+ 416 0144 6091 0000 		lds r22,pxCurrentCoRoutine
+ 417 0148 7091 0000 		lds r23,pxCurrentCoRoutine+1
+ 418 014c 645F      		subi r22,-12
+ 419 014e 7F4F      		sbci r23,-1
+ 420 0150 C801      		movw r24,r16
+ 421               	/* epilogue start */
+ 194:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 423               	.LM35:
+ 424 0152 DF91      		pop r29
+ 425 0154 CF91      		pop r28
+ 426 0156 1F91      		pop r17
+ 427 0158 0F91      		pop r16
+ 192:FreeRTOS/Source/croutine.c **** 	}
+ 429               	.LM36:
+ 430 015a 0C94 0000 		jmp vListInsert
+ 431               	.L11:
+ 432               	/* epilogue start */
+ 194:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 434               	.LM37:
+ 435 015e DF91      		pop r29
+ 436 0160 CF91      		pop r28
+ 437 0162 1F91      		pop r17
+ 438 0164 0F91      		pop r16
+ 439 0166 0895      		ret
+ 444               	.Lscope2:
+ 446               		.stabd	78,0,0
+ 448               	.global	vCoRoutineSchedule
+ 450               	vCoRoutineSchedule:
+ 451               		.stabd	46,0,0
+ 279:FreeRTOS/Source/croutine.c **** 	/* See if any co-routines readied by events need moving to the ready lists. */
+ 453               	.LM38:
+ 454               	.LFBB3:
+ 455 0168 FF92      		push r15
+ 456 016a 0F93      		push r16
+ 457 016c 1F93      		push r17
+ 458 016e CF93      		push r28
+ 459 0170 DF93      		push r29
+ 460               	/* prologue: function */
+ 461               	/* frame size = 0 */
+ 462               	/* stack size = 5 */
+ 463               	.L__stack_usage = 5
+ 464               	.LBB13:
+ 465               	.LBB14:
+ 466               	.LBB15:
+ 215:FreeRTOS/Source/croutine.c **** 	}
+ 468               	.LM39:
+ 469 0172 99E0      		ldi r25,lo8(9)
+ 470 0174 F92E      		mov r15,r25
+ 471               	.L17:
+ 472               	.LBE15:
+ 202:FreeRTOS/Source/croutine.c **** 	{
+ 474               	.LM40:
+ 475 0176 8091 0000 		lds r24,xPendingReadyCoRoutineList
+ 476 017a 8823      		tst r24
+ 477 017c 01F0      		breq .L37
+ 478               	.LBB16:
+ 207:FreeRTOS/Source/croutine.c **** 		{
+ 480               	.LM41:
+ 481               	/* #APP */
+ 482               	 ;  207 "FreeRTOS/Source/croutine.c" 1
+ 483 017e F894      		cli
+ 484               	 ;  0 "" 2
+ 209:FreeRTOS/Source/croutine.c **** 			( void ) uxListRemove( &( pxUnblockedCRCB->xEventListItem ) );
+ 486               	.LM42:
+ 487               	/* #NOAPP */
+ 488 0180 E091 0000 		lds r30,xPendingReadyCoRoutineList+5
+ 489 0184 F091 0000 		lds r31,xPendingReadyCoRoutineList+5+1
+ 490 0188 C681      		ldd r28,Z+6
+ 491 018a D781      		ldd r29,Z+7
+ 210:FreeRTOS/Source/croutine.c **** 		}
+ 493               	.LM43:
+ 494 018c CE01      		movw r24,r28
+ 495 018e 0C96      		adiw r24,12
+ 496 0190 0E94 0000 		call uxListRemove
+ 212:FreeRTOS/Source/croutine.c **** 
+ 498               	.LM44:
+ 499               	/* #APP */
+ 500               	 ;  212 "FreeRTOS/Source/croutine.c" 1
+ 501 0194 7894      		sei
+ 502               	 ;  0 "" 2
+ 214:FreeRTOS/Source/croutine.c **** 		prvAddCoRoutineToReadyQueue( pxUnblockedCRCB );
+ 504               	.LM45:
+ 505               	/* #NOAPP */
+ 506 0196 8E01      		movw r16,r28
+ 507 0198 0E5F      		subi r16,-2
+ 508 019a 1F4F      		sbci r17,-1
+ 509 019c C801      		movw r24,r16
+ 510 019e 0E94 0000 		call uxListRemove
+ 215:FreeRTOS/Source/croutine.c **** 	}
+ 512               	.LM46:
+ 513 01a2 8E89      		ldd r24,Y+22
+ 514 01a4 9091 0000 		lds r25,uxTopCoRoutineReadyPriority
+ 515 01a8 9817      		cp r25,r24
+ 516 01aa 00F4      		brsh .L18
+ 517 01ac 8093 0000 		sts uxTopCoRoutineReadyPriority,r24
+ 518               	.L18:
+ 519 01b0 F89E      		mul r15,r24
+ 520 01b2 C001      		movw r24,r0
+ 521 01b4 1124      		clr __zero_reg__
+ 522 01b6 B801      		movw r22,r16
+ 523 01b8 8050      		subi r24,lo8(-(pxReadyCoRoutineLists))
+ 524 01ba 9040      		sbci r25,hi8(-(pxReadyCoRoutineLists))
+ 525 01bc 0E94 0000 		call vListInsertEnd
+ 526 01c0 00C0      		rjmp .L17
+ 527               	.L37:
+ 528               	.LBE16:
+ 529               	.LBE14:
+ 530               	.LBE13:
+ 531               	.LBB17:
+ 532               	.LBB18:
+ 224:FreeRTOS/Source/croutine.c **** 	while( xPassedTicks )
+ 534               	.LM47:
+ 535 01c2 0E94 0000 		call xTaskGetTickCount
+ 536 01c6 2091 0000 		lds r18,xLastTickCount
+ 537 01ca 3091 0000 		lds r19,xLastTickCount+1
+ 538 01ce 821B      		sub r24,r18
+ 539 01d0 930B      		sbc r25,r19
+ 540 01d2 9093 0000 		sts xPassedTicks+1,r25
+ 541 01d6 8093 0000 		sts xPassedTicks,r24
+ 270:FreeRTOS/Source/croutine.c **** 		}
+ 543               	.LM48:
+ 544 01da 89E0      		ldi r24,lo8(9)
+ 545 01dc F82E      		mov r15,r24
+ 546               	.L34:
+ 225:FreeRTOS/Source/croutine.c **** 	{
+ 548               	.LM49:
+ 549 01de 2091 0000 		lds r18,xPassedTicks
+ 550 01e2 3091 0000 		lds r19,xPassedTicks+1
+ 551 01e6 8091 0000 		lds r24,xCoRoutineTickCount
+ 552 01ea 9091 0000 		lds r25,xCoRoutineTickCount+1
+ 553 01ee 2115      		cp r18,__zero_reg__
+ 554 01f0 3105      		cpc r19,__zero_reg__
+ 555 01f2 01F4      		brne .+2
+ 556 01f4 00C0      		rjmp .L38
+ 227:FreeRTOS/Source/croutine.c **** 		xPassedTicks--;
+ 558               	.LM50:
+ 559 01f6 0196      		adiw r24,1
+ 560 01f8 9093 0000 		sts xCoRoutineTickCount+1,r25
+ 561 01fc 8093 0000 		sts xCoRoutineTickCount,r24
+ 228:FreeRTOS/Source/croutine.c **** 
+ 563               	.LM51:
+ 564 0200 2150      		subi r18,1
+ 565 0202 3109      		sbc r19,__zero_reg__
+ 566 0204 3093 0000 		sts xPassedTicks+1,r19
+ 567 0208 2093 0000 		sts xPassedTicks,r18
+ 231:FreeRTOS/Source/croutine.c **** 		{
+ 569               	.LM52:
+ 570 020c 892B      		or r24,r25
+ 571 020e 01F0      		breq .+2
+ 572 0210 00C0      		rjmp .L22
+ 573               	.LBB19:
+ 237:FreeRTOS/Source/croutine.c **** 			pxDelayedCoRoutineList = pxOverflowDelayedCoRoutineList;
+ 575               	.LM53:
+ 576 0212 8091 0000 		lds r24,pxDelayedCoRoutineList
+ 577 0216 9091 0000 		lds r25,pxDelayedCoRoutineList+1
+ 238:FreeRTOS/Source/croutine.c **** 			pxOverflowDelayedCoRoutineList = pxTemp;
+ 579               	.LM54:
+ 580 021a 2091 0000 		lds r18,pxOverflowDelayedCoRoutineList
+ 581 021e 3091 0000 		lds r19,pxOverflowDelayedCoRoutineList+1
+ 582 0222 3093 0000 		sts pxDelayedCoRoutineList+1,r19
+ 583 0226 2093 0000 		sts pxDelayedCoRoutineList,r18
+ 239:FreeRTOS/Source/croutine.c **** 		}
+ 585               	.LM55:
+ 586 022a 9093 0000 		sts pxOverflowDelayedCoRoutineList+1,r25
+ 587 022e 8093 0000 		sts pxOverflowDelayedCoRoutineList,r24
+ 588 0232 00C0      		rjmp .L22
+ 589               	.L25:
+ 590               	.LBE19:
+ 245:FreeRTOS/Source/croutine.c **** 
+ 592               	.LM56:
+ 593 0234 0580      		ldd __tmp_reg__,Z+5
+ 594 0236 F681      		ldd r31,Z+6
+ 595 0238 E02D      		mov r30,__tmp_reg__
+ 596 023a C681      		ldd r28,Z+6
+ 597 023c D781      		ldd r29,Z+7
+ 247:FreeRTOS/Source/croutine.c **** 			{
+ 599               	.LM57:
+ 600 023e 2A81      		ldd r18,Y+2
+ 601 0240 3B81      		ldd r19,Y+3
+ 602 0242 8091 0000 		lds r24,xCoRoutineTickCount
+ 603 0246 9091 0000 		lds r25,xCoRoutineTickCount+1
+ 604 024a 8217      		cp r24,r18
+ 605 024c 9307      		cpc r25,r19
+ 606 024e 00F0      		brlo .L34
+ 253:FreeRTOS/Source/croutine.c **** 			{
+ 608               	.LM58:
+ 609               	/* #APP */
+ 610               	 ;  253 "FreeRTOS/Source/croutine.c" 1
+ 611 0250 F894      		cli
+ 612               	 ;  0 "" 2
+ 260:FreeRTOS/Source/croutine.c **** 
+ 614               	.LM59:
+ 615               	/* #NOAPP */
+ 616 0252 8E01      		movw r16,r28
+ 617 0254 0E5F      		subi r16,-2
+ 618 0256 1F4F      		sbci r17,-1
+ 619 0258 C801      		movw r24,r16
+ 620 025a 0E94 0000 		call uxListRemove
+ 263:FreeRTOS/Source/croutine.c **** 				{
+ 622               	.LM60:
+ 623 025e 8C89      		ldd r24,Y+20
+ 624 0260 9D89      		ldd r25,Y+21
+ 625 0262 892B      		or r24,r25
+ 626 0264 01F0      		breq .L23
+ 265:FreeRTOS/Source/croutine.c **** 				}
+ 628               	.LM61:
+ 629 0266 CE01      		movw r24,r28
+ 630 0268 0C96      		adiw r24,12
+ 631 026a 0E94 0000 		call uxListRemove
+ 632               	.L23:
+ 268:FreeRTOS/Source/croutine.c **** 
+ 634               	.LM62:
+ 635               	/* #APP */
+ 636               	 ;  268 "FreeRTOS/Source/croutine.c" 1
+ 637 026e 7894      		sei
+ 638               	 ;  0 "" 2
+ 270:FreeRTOS/Source/croutine.c **** 		}
+ 640               	.LM63:
+ 641               	/* #NOAPP */
+ 642 0270 8E89      		ldd r24,Y+22
+ 643 0272 9091 0000 		lds r25,uxTopCoRoutineReadyPriority
+ 644 0276 9817      		cp r25,r24
+ 645 0278 00F4      		brsh .L24
+ 646 027a 8093 0000 		sts uxTopCoRoutineReadyPriority,r24
+ 647               	.L24:
+ 648 027e F89E      		mul r15,r24
+ 649 0280 C001      		movw r24,r0
+ 650 0282 1124      		clr __zero_reg__
+ 651 0284 B801      		movw r22,r16
+ 652 0286 8050      		subi r24,lo8(-(pxReadyCoRoutineLists))
+ 653 0288 9040      		sbci r25,hi8(-(pxReadyCoRoutineLists))
+ 654 028a 0E94 0000 		call vListInsertEnd
+ 655               	.L22:
+ 243:FreeRTOS/Source/croutine.c **** 		{
+ 657               	.LM64:
+ 658 028e E091 0000 		lds r30,pxDelayedCoRoutineList
+ 659 0292 F091 0000 		lds r31,pxDelayedCoRoutineList+1
+ 660 0296 8081      		ld r24,Z
+ 661 0298 8111      		cpse r24,__zero_reg__
+ 662 029a 00C0      		rjmp .L25
+ 663 029c 00C0      		rjmp .L34
+ 664               	.L38:
+ 274:FreeRTOS/Source/croutine.c **** }
+ 666               	.LM65:
+ 667 029e 9093 0000 		sts xLastTickCount+1,r25
+ 668 02a2 8093 0000 		sts xLastTickCount,r24
+ 669 02a6 8091 0000 		lds r24,uxTopCoRoutineReadyPriority
+ 670               	.LBE18:
+ 671               	.LBE17:
+ 287:FreeRTOS/Source/croutine.c **** 	{
+ 673               	.LM66:
+ 674 02aa 69E0      		ldi r22,lo8(9)
+ 675               	.L27:
+ 676 02ac 482F      		mov r20,r24
+ 677 02ae 50E0      		ldi r21,0
+ 678 02b0 649F      		mul r22,r20
+ 679 02b2 9001      		movw r18,r0
+ 680 02b4 659F      		mul r22,r21
+ 681 02b6 300D      		add r19,r0
+ 682 02b8 1124      		clr __zero_reg__
+ 683 02ba F901      		movw r30,r18
+ 684 02bc E050      		subi r30,lo8(-(pxReadyCoRoutineLists))
+ 685 02be F040      		sbci r31,hi8(-(pxReadyCoRoutineLists))
+ 686 02c0 9081      		ld r25,Z
+ 687 02c2 9111      		cpse r25,__zero_reg__
+ 688 02c4 00C0      		rjmp .L39
+ 289:FreeRTOS/Source/croutine.c **** 		{
+ 690               	.LM67:
+ 691 02c6 8111      		cpse r24,__zero_reg__
+ 692 02c8 00C0      		rjmp .L28
+ 693 02ca 1092 0000 		sts uxTopCoRoutineReadyPriority,__zero_reg__
+ 694               	/* epilogue start */
+ 305:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 696               	.LM68:
+ 697 02ce DF91      		pop r29
+ 698 02d0 CF91      		pop r28
+ 699 02d2 1F91      		pop r17
+ 700 02d4 0F91      		pop r16
+ 701 02d6 FF90      		pop r15
+ 702 02d8 0895      		ret
+ 703               	.L28:
+ 294:FreeRTOS/Source/croutine.c **** 	}
+ 705               	.LM69:
+ 706 02da 8150      		subi r24,lo8(-(-1))
+ 707 02dc 00C0      		rjmp .L27
+ 708               	.L39:
+ 709 02de 8093 0000 		sts uxTopCoRoutineReadyPriority,r24
+ 710               	.LBB20:
+ 299:FreeRTOS/Source/croutine.c **** 
+ 712               	.LM70:
+ 713 02e2 A181      		ldd r26,Z+1
+ 714 02e4 B281      		ldd r27,Z+2
+ 715 02e6 1296      		adiw r26,2
+ 716 02e8 0D90      		ld __tmp_reg__,X+
+ 717 02ea BC91      		ld r27,X
+ 718 02ec A02D      		mov r26,__tmp_reg__
+ 719 02ee B283      		std Z+2,r27
+ 720 02f0 A183      		std Z+1,r26
+ 721 02f2 2050      		subi r18,lo8(-(pxReadyCoRoutineLists+3))
+ 722 02f4 3040      		sbci r19,hi8(-(pxReadyCoRoutineLists+3))
+ 723 02f6 A217      		cp r26,r18
+ 724 02f8 B307      		cpc r27,r19
+ 725 02fa 01F4      		brne .L31
+ 299:FreeRTOS/Source/croutine.c **** 
+ 727               	.LM71:
+ 728 02fc 1296      		adiw r26,2
+ 729 02fe 8D91      		ld r24,X+
+ 730 0300 9C91      		ld r25,X
+ 731 0302 1397      		sbiw r26,2+1
+ 732 0304 9283      		std Z+2,r25
+ 733 0306 8183      		std Z+1,r24
+ 734               	.L31:
+ 299:FreeRTOS/Source/croutine.c **** 
+ 736               	.LM72:
+ 737 0308 89E0      		ldi r24,lo8(9)
+ 738 030a 849F      		mul r24,r20
+ 739 030c F001      		movw r30,r0
+ 740 030e 859F      		mul r24,r21
+ 741 0310 F00D      		add r31,r0
+ 742 0312 1124      		clr __zero_reg__
+ 743 0314 E050      		subi r30,lo8(-(pxReadyCoRoutineLists))
+ 744 0316 F040      		sbci r31,hi8(-(pxReadyCoRoutineLists))
+ 745 0318 0180      		ldd __tmp_reg__,Z+1
+ 746 031a F281      		ldd r31,Z+2
+ 747 031c E02D      		mov r30,__tmp_reg__
+ 748 031e 8681      		ldd r24,Z+6
+ 749 0320 9781      		ldd r25,Z+7
+ 750 0322 9093 0000 		sts pxCurrentCoRoutine+1,r25
+ 751 0326 8093 0000 		sts pxCurrentCoRoutine,r24
+ 752               	.LBE20:
+ 302:FreeRTOS/Source/croutine.c **** 
+ 754               	.LM73:
+ 755 032a DC01      		movw r26,r24
+ 756 032c ED91      		ld r30,X+
+ 757 032e FC91      		ld r31,X
+ 758 0330 1197      		sbiw r26,1
+ 759 0332 5796      		adiw r26,23
+ 760 0334 6C91      		ld r22,X
+ 761               	/* epilogue start */
+ 305:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 763               	.LM74:
+ 764 0336 DF91      		pop r29
+ 765 0338 CF91      		pop r28
+ 766 033a 1F91      		pop r17
+ 767 033c 0F91      		pop r16
+ 768 033e FF90      		pop r15
+ 302:FreeRTOS/Source/croutine.c **** 
+ 770               	.LM75:
+ 771 0340 0994      		ijmp
+ 785               	.Lscope3:
+ 787               		.stabd	78,0,0
+ 790               	.global	xCoRoutineRemoveFromEventList
+ 792               	xCoRoutineRemoveFromEventList:
+ 793               		.stabd	46,0,0
+ 325:FreeRTOS/Source/croutine.c **** }
+ 326:FreeRTOS/Source/croutine.c **** /*-----------------------------------------------------------*/
+ 327:FreeRTOS/Source/croutine.c **** 
+ 328:FreeRTOS/Source/croutine.c **** BaseType_t xCoRoutineRemoveFromEventList( const List_t *pxEventList )
+ 329:FreeRTOS/Source/croutine.c **** {
+ 795               	.LM76:
+ 796               	.LFBB4:
+ 797 0342 0F93      		push r16
+ 798 0344 1F93      		push r17
+ 799 0346 CF93      		push r28
+ 800 0348 DF93      		push r29
+ 801               	/* prologue: function */
+ 802               	/* frame size = 0 */
+ 803               	/* stack size = 4 */
+ 804               	.L__stack_usage = 4
+ 330:FreeRTOS/Source/croutine.c **** CRCB_t *pxUnblockedCRCB;
+ 331:FreeRTOS/Source/croutine.c **** BaseType_t xReturn;
+ 332:FreeRTOS/Source/croutine.c **** 
+ 333:FreeRTOS/Source/croutine.c **** 	/* This function is called from within an interrupt.  It can only access
+ 334:FreeRTOS/Source/croutine.c **** 	event lists and the pending ready list.  This function assumes that a
+ 335:FreeRTOS/Source/croutine.c **** 	check has already been made to ensure pxEventList is not empty. */
+ 336:FreeRTOS/Source/croutine.c **** 	pxUnblockedCRCB = ( CRCB_t * ) listGET_OWNER_OF_HEAD_ENTRY( pxEventList );
+ 806               	.LM77:
+ 807 034a DC01      		movw r26,r24
+ 808 034c 1596      		adiw r26,5
+ 809 034e ED91      		ld r30,X+
+ 810 0350 FC91      		ld r31,X
+ 811 0352 1697      		sbiw r26,5+1
+ 812 0354 C681      		ldd r28,Z+6
+ 813 0356 D781      		ldd r29,Z+7
+ 337:FreeRTOS/Source/croutine.c **** 	( void ) uxListRemove( &( pxUnblockedCRCB->xEventListItem ) );
+ 815               	.LM78:
+ 816 0358 8E01      		movw r16,r28
+ 817 035a 045F      		subi r16,-12
+ 818 035c 1F4F      		sbci r17,-1
+ 819 035e C801      		movw r24,r16
+ 820 0360 0E94 0000 		call uxListRemove
+ 338:FreeRTOS/Source/croutine.c **** 	vListInsertEnd( ( List_t * ) &( xPendingReadyCoRoutineList ), &( pxUnblockedCRCB->xEventListItem )
+ 822               	.LM79:
+ 823 0364 B801      		movw r22,r16
+ 824 0366 80E0      		ldi r24,lo8(xPendingReadyCoRoutineList)
+ 825 0368 90E0      		ldi r25,hi8(xPendingReadyCoRoutineList)
+ 826 036a 0E94 0000 		call vListInsertEnd
+ 339:FreeRTOS/Source/croutine.c **** 
+ 340:FreeRTOS/Source/croutine.c **** 	if( pxUnblockedCRCB->uxPriority >= pxCurrentCoRoutine->uxPriority )
+ 828               	.LM80:
+ 829 036e E091 0000 		lds r30,pxCurrentCoRoutine
+ 830 0372 F091 0000 		lds r31,pxCurrentCoRoutine+1
+ 341:FreeRTOS/Source/croutine.c **** 	{
+ 342:FreeRTOS/Source/croutine.c **** 		xReturn = pdTRUE;
+ 343:FreeRTOS/Source/croutine.c **** 	}
+ 344:FreeRTOS/Source/croutine.c **** 	else
+ 345:FreeRTOS/Source/croutine.c **** 	{
+ 346:FreeRTOS/Source/croutine.c **** 		xReturn = pdFALSE;
+ 347:FreeRTOS/Source/croutine.c **** 	}
+ 348:FreeRTOS/Source/croutine.c **** 
+ 349:FreeRTOS/Source/croutine.c **** 	return xReturn;
+ 832               	.LM81:
+ 833 0376 81E0      		ldi r24,lo8(1)
+ 834 0378 2E89      		ldd r18,Y+22
+ 835 037a 9689      		ldd r25,Z+22
+ 836 037c 2917      		cp r18,r25
+ 837 037e 00F4      		brsh .L41
+ 838 0380 80E0      		ldi r24,0
+ 839               	.L41:
+ 840               	/* epilogue start */
+ 350:FreeRTOS/Source/croutine.c **** }
+ 842               	.LM82:
+ 843 0382 DF91      		pop r29
+ 844 0384 CF91      		pop r28
+ 845 0386 1F91      		pop r17
+ 846 0388 0F91      		pop r16
+ 847 038a 0895      		ret
+ 852               	.Lscope4:
+ 854               		.stabd	78,0,0
+ 855               		.local	xPassedTicks
+ 856               		.comm	xPassedTicks,2,1
+ 857               		.local	xLastTickCount
+ 858               		.comm	xLastTickCount,2,1
+ 859               		.local	xCoRoutineTickCount
+ 860               		.comm	xCoRoutineTickCount,2,1
+ 861               		.local	uxTopCoRoutineReadyPriority
+ 862               		.comm	uxTopCoRoutineReadyPriority,1,1
+ 863               	.global	pxCurrentCoRoutine
+ 864               		.section .bss
+ 867               	pxCurrentCoRoutine:
+ 868 0000 0000      		.zero	2
+ 869               		.local	xPendingReadyCoRoutineList
+ 870               		.comm	xPendingReadyCoRoutineList,9,1
+ 871               		.local	pxOverflowDelayedCoRoutineList
+ 872               		.comm	pxOverflowDelayedCoRoutineList,2,1
+ 873               		.local	pxDelayedCoRoutineList
+ 874               		.comm	pxDelayedCoRoutineList,2,1
+ 875               		.local	xDelayedCoRoutineList2
+ 876               		.comm	xDelayedCoRoutineList2,9,1
+ 877               		.local	xDelayedCoRoutineList1
+ 878               		.comm	xDelayedCoRoutineList1,9,1
+ 879               		.local	pxReadyCoRoutineLists
+ 880               		.comm	pxReadyCoRoutineLists,18,1
+ 892               		.text
+ 894               	.Letext0:
+ 895               		.ident	"GCC: (GNU) 5.4.0"
+ 896               	.global __do_clear_bss
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 croutine.c
+     /tmp/ccYH6oXK.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccYH6oXK.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccYH6oXK.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccYH6oXK.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccYH6oXK.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccYH6oXK.s:178    .text:0000000000000000 xCoRoutineCreate
+     /tmp/ccYH6oXK.s:867    .bss:0000000000000000 pxCurrentCoRoutine
+     /tmp/ccYH6oXK.s:878    .bss:0000000000000028 pxReadyCoRoutineLists
+     /tmp/ccYH6oXK.s:876    .bss:000000000000001f xDelayedCoRoutineList1
+     /tmp/ccYH6oXK.s:874    .bss:0000000000000016 xDelayedCoRoutineList2
+     /tmp/ccYH6oXK.s:862    .bss:0000000000000009 xPendingReadyCoRoutineList
+     /tmp/ccYH6oXK.s:872    .bss:0000000000000014 pxDelayedCoRoutineList
+     /tmp/ccYH6oXK.s:870    .bss:0000000000000012 pxOverflowDelayedCoRoutineList
+     /tmp/ccYH6oXK.s:860    .bss:0000000000000008 uxTopCoRoutineReadyPriority
+     /tmp/ccYH6oXK.s:355    .text:00000000000000e4 vCoRoutineAddToDelayedList
+     /tmp/ccYH6oXK.s:858    .bss:0000000000000006 xCoRoutineTickCount
+     /tmp/ccYH6oXK.s:450    .text:0000000000000168 vCoRoutineSchedule
+     /tmp/ccYH6oXK.s:856    .bss:0000000000000004 xLastTickCount
+                             .bss:0000000000000002 xPassedTicks
+     /tmp/ccYH6oXK.s:792    .text:0000000000000342 xCoRoutineRemoveFromEventList
+
+UNDEFINED SYMBOLS
+pvPortMalloc
+vListInitialise
+vListInitialiseItem
+vListInsertEnd
+uxListRemove
+vListInsert
+xTaskGetTickCount
+__do_clear_bss

@@ -1,0 +1,325 @@
+
+blink_attiny.elf:     file format elf32-avr
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .text         000001ac  00000000  00000000  00000094  2**1
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  1 .data         00000000  00800060  000001ac  00000240  2**0
+                  CONTENTS, ALLOC, LOAD, DATA
+  2 .bss          00000042  00800060  00800060  00000240  2**0
+                  ALLOC
+  3 .stab         00000690  00000000  00000000  00000240  2**2
+                  CONTENTS, READONLY, DEBUGGING
+  4 .stabstr      00000ce0  00000000  00000000  000008d0  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  5 .comment      00000011  00000000  00000000  000015b0  2**0
+                  CONTENTS, READONLY
+  6 .note.gnu.avr.deviceinfo 0000003c  00000000  00000000  000015c4  2**2
+                  CONTENTS, READONLY
+  7 .debug_info   00000420  00000000  00000000  00001600  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  8 .debug_abbrev 000003e8  00000000  00000000  00001a20  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  9 .debug_line   0000001a  00000000  00000000  00001e08  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 10 .debug_str    00000173  00000000  00000000  00001e22  2**0
+                  CONTENTS, READONLY, DEBUGGING
+
+Disassembly of section .text:
+
+00000000 <__vectors>:
+   0:	10 c0       	rjmp	.+32     	; 0x22 <__ctors_end>
+   2:	1f c0       	rjmp	.+62     	; 0x42 <__bad_interrupt>
+   4:	1e c0       	rjmp	.+60     	; 0x42 <__bad_interrupt>
+   6:	1d c0       	rjmp	.+58     	; 0x42 <__bad_interrupt>
+   8:	1c c0       	rjmp	.+56     	; 0x42 <__bad_interrupt>
+   a:	1b c0       	rjmp	.+54     	; 0x42 <__bad_interrupt>
+   c:	1a c0       	rjmp	.+52     	; 0x42 <__bad_interrupt>
+   e:	19 c0       	rjmp	.+50     	; 0x42 <__bad_interrupt>
+  10:	18 c0       	rjmp	.+48     	; 0x42 <__bad_interrupt>
+  12:	24 c0       	rjmp	.+72     	; 0x5c <__vector_9>
+  14:	16 c0       	rjmp	.+44     	; 0x42 <__bad_interrupt>
+  16:	15 c0       	rjmp	.+42     	; 0x42 <__bad_interrupt>
+  18:	14 c0       	rjmp	.+40     	; 0x42 <__bad_interrupt>
+  1a:	13 c0       	rjmp	.+38     	; 0x42 <__bad_interrupt>
+  1c:	12 c0       	rjmp	.+36     	; 0x42 <__bad_interrupt>
+  1e:	11 c0       	rjmp	.+34     	; 0x42 <__bad_interrupt>
+  20:	10 c0       	rjmp	.+32     	; 0x42 <__bad_interrupt>
+
+00000022 <__ctors_end>:
+  22:	11 24       	eor	r1, r1
+  24:	1f be       	out	0x3f, r1	; 63
+  26:	cf e5       	ldi	r28, 0x5F	; 95
+  28:	d2 e0       	ldi	r29, 0x02	; 2
+  2a:	de bf       	out	0x3e, r29	; 62
+  2c:	cd bf       	out	0x3d, r28	; 61
+
+0000002e <__do_clear_bss>:
+  2e:	20 e0       	ldi	r18, 0x00	; 0
+  30:	a0 e6       	ldi	r26, 0x60	; 96
+  32:	b0 e0       	ldi	r27, 0x00	; 0
+  34:	01 c0       	rjmp	.+2      	; 0x38 <.do_clear_bss_start>
+
+00000036 <.do_clear_bss_loop>:
+  36:	1d 92       	st	X+, r1
+
+00000038 <.do_clear_bss_start>:
+  38:	a2 3a       	cpi	r26, 0xA2	; 162
+  3a:	b2 07       	cpc	r27, r18
+  3c:	e1 f7       	brne	.-8      	; 0x36 <.do_clear_bss_loop>
+  3e:	99 d0       	rcall	.+306    	; 0x172 <main>
+  40:	b3 c0       	rjmp	.+358    	; 0x1a8 <_exit>
+
+00000042 <__bad_interrupt>:
+  42:	de cf       	rjmp	.-68     	; 0x0 <__vectors>
+
+00000044 <timer0_init>:
+// FCPU 1 000 000
+// -> 1000
+// F_OC1A  = FCPU / (2 * N * (1 + OCR1A))
+
+void timer0_init(){
+    TCCR0A |= _BV(WGM00);
+  44:	80 b7       	in	r24, 0x30	; 48
+  46:	81 60       	ori	r24, 0x01	; 1
+  48:	80 bf       	out	0x30, r24	; 48
+    TCCR0B |= _BV(CS01);// |  _BV(CS10);
+  4a:	83 b7       	in	r24, 0x33	; 51
+  4c:	82 60       	ori	r24, 0x02	; 2
+  4e:	83 bf       	out	0x33, r24	; 51
+    TIMSK0 |= _BV(OCIE0A);
+  50:	89 b7       	in	r24, 0x39	; 57
+  52:	82 60       	ori	r24, 0x02	; 2
+  54:	89 bf       	out	0x39, r24	; 57
+    OCR0A = 124;
+  56:	8c e7       	ldi	r24, 0x7C	; 124
+  58:	86 bf       	out	0x36, r24	; 54
+  5a:	08 95       	ret
+
+0000005c <__vector_9>:
+}
+
+ISR(TIM0_COMPA_vect){
+  5c:	1f 92       	push	r1
+  5e:	0f 92       	push	r0
+  60:	0f b6       	in	r0, 0x3f	; 63
+  62:	0f 92       	push	r0
+  64:	11 24       	eor	r1, r1
+  66:	2f 93       	push	r18
+  68:	3f 93       	push	r19
+  6a:	4f 93       	push	r20
+  6c:	5f 93       	push	r21
+  6e:	8f 93       	push	r24
+  70:	9f 93       	push	r25
+  72:	ef 93       	push	r30
+  74:	ff 93       	push	r31
+  // if(num == 201) num = 0;
+  if(num > SIZE*8) num = 0;
+  76:	80 91 60 00 	lds	r24, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+  7a:	90 91 61 00 	lds	r25, 0x0061	; 0x800061 <__DATA_REGION_ORIGIN__+0x1>
+  7e:	81 30       	cpi	r24, 0x01	; 1
+  80:	92 40       	sbci	r25, 0x02	; 2
+  82:	20 f0       	brcs	.+8      	; 0x8c <__vector_9+0x30>
+  84:	10 92 61 00 	sts	0x0061, r1	; 0x800061 <__DATA_REGION_ORIGIN__+0x1>
+  88:	10 92 60 00 	sts	0x0060, r1	; 0x800060 <__DATA_REGION_ORIGIN__>
+  // if(num == 500) LED_PORT |= _BV(LED);
+  // if(num == 0) LED_PORT &= ~_BV(LED);
+  if(get_value(num)) LED_PORT |= _BV(LED);
+  8c:	20 91 60 00 	lds	r18, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+  90:	30 91 61 00 	lds	r19, 0x0061	; 0x800061 <__DATA_REGION_ORIGIN__+0x1>
+  if(value) tab[place>>3] |= 1 << (place & 0x111);
+  else tab[place>>3] &= ~ (1 << (place & 0x111));
+}
+
+__attribute__((always_inline)) static inline int get_value(int place){
+  return (tab[place>>3] & (1 << (place & 0x111)));
+  94:	f9 01       	movw	r30, r18
+  96:	f5 95       	asr	r31
+  98:	e7 95       	ror	r30
+  9a:	f5 95       	asr	r31
+  9c:	e7 95       	ror	r30
+  9e:	f5 95       	asr	r31
+  a0:	e7 95       	ror	r30
+  a2:	ee 59       	subi	r30, 0x9E	; 158
+  a4:	ff 4f       	sbci	r31, 0xFF	; 255
+ISR(TIM0_COMPA_vect){
+  // if(num == 201) num = 0;
+  if(num > SIZE*8) num = 0;
+  // if(num == 500) LED_PORT |= _BV(LED);
+  // if(num == 0) LED_PORT &= ~_BV(LED);
+  if(get_value(num)) LED_PORT |= _BV(LED);
+  a6:	80 81       	ld	r24, Z
+  a8:	48 2f       	mov	r20, r24
+  aa:	50 e0       	ldi	r21, 0x00	; 0
+  ac:	21 71       	andi	r18, 0x11	; 17
+  ae:	31 70       	andi	r19, 0x01	; 1
+  b0:	81 e0       	ldi	r24, 0x01	; 1
+  b2:	90 e0       	ldi	r25, 0x00	; 0
+  b4:	02 c0       	rjmp	.+4      	; 0xba <__vector_9+0x5e>
+  b6:	88 0f       	add	r24, r24
+  b8:	99 1f       	adc	r25, r25
+  ba:	2a 95       	dec	r18
+  bc:	e2 f7       	brpl	.-8      	; 0xb6 <__vector_9+0x5a>
+  be:	84 23       	and	r24, r20
+  c0:	95 23       	and	r25, r21
+  c2:	89 2b       	or	r24, r25
+  c4:	b9 f1       	breq	.+110    	; 0x134 <__vector_9+0xd8>
+  c6:	d9 9a       	sbi	0x1b, 1	; 27
+  // num++;
+  // if(num > 1000) num = 0;
+  // LED_PORT &= ~_BV(LED);
+  uint8_t val = !(PINA & _BV(BUTTON));
+  // set_value(num,!val);
+  if(val) tab[num>>3] |= 1 << (num & 0x111);
+  c8:	ca 9b       	sbis	0x19, 2	; 25
+  ca:	37 c0       	rjmp	.+110    	; 0x13a <__vector_9+0xde>
+  else tab[num>>3] &= ~ (1 << (num & 0x111));
+  cc:	20 91 60 00 	lds	r18, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+  d0:	30 91 61 00 	lds	r19, 0x0061	; 0x800061 <__DATA_REGION_ORIGIN__+0x1>
+  d4:	e0 91 60 00 	lds	r30, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+  d8:	f0 91 61 00 	lds	r31, 0x0061	; 0x800061 <__DATA_REGION_ORIGIN__+0x1>
+  dc:	f6 95       	lsr	r31
+  de:	e7 95       	ror	r30
+  e0:	f6 95       	lsr	r31
+  e2:	e7 95       	ror	r30
+  e4:	f6 95       	lsr	r31
+  e6:	e7 95       	ror	r30
+  e8:	ee 59       	subi	r30, 0x9E	; 158
+  ea:	ff 4f       	sbci	r31, 0xFF	; 255
+  ec:	21 71       	andi	r18, 0x11	; 17
+  ee:	31 70       	andi	r19, 0x01	; 1
+  f0:	81 e0       	ldi	r24, 0x01	; 1
+  f2:	90 e0       	ldi	r25, 0x00	; 0
+  f4:	02 c0       	rjmp	.+4      	; 0xfa <__vector_9+0x9e>
+  f6:	88 0f       	add	r24, r24
+  f8:	99 1f       	adc	r25, r25
+  fa:	2a 95       	dec	r18
+  fc:	e2 f7       	brpl	.-8      	; 0xf6 <__vector_9+0x9a>
+  fe:	80 95       	com	r24
+ 100:	90 95       	com	r25
+ 102:	90 81       	ld	r25, Z
+ 104:	89 23       	and	r24, r25
+ 106:	80 83       	st	Z, r24
+  num++;
+ 108:	80 91 60 00 	lds	r24, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+ 10c:	90 91 61 00 	lds	r25, 0x0061	; 0x800061 <__DATA_REGION_ORIGIN__+0x1>
+ 110:	01 96       	adiw	r24, 0x01	; 1
+ 112:	90 93 61 00 	sts	0x0061, r25	; 0x800061 <__DATA_REGION_ORIGIN__+0x1>
+ 116:	80 93 60 00 	sts	0x0060, r24	; 0x800060 <__DATA_REGION_ORIGIN__>
+}
+ 11a:	ff 91       	pop	r31
+ 11c:	ef 91       	pop	r30
+ 11e:	9f 91       	pop	r25
+ 120:	8f 91       	pop	r24
+ 122:	5f 91       	pop	r21
+ 124:	4f 91       	pop	r20
+ 126:	3f 91       	pop	r19
+ 128:	2f 91       	pop	r18
+ 12a:	0f 90       	pop	r0
+ 12c:	0f be       	out	0x3f, r0	; 63
+ 12e:	0f 90       	pop	r0
+ 130:	1f 90       	pop	r1
+ 132:	18 95       	reti
+  // if(num == 201) num = 0;
+  if(num > SIZE*8) num = 0;
+  // if(num == 500) LED_PORT |= _BV(LED);
+  // if(num == 0) LED_PORT &= ~_BV(LED);
+  if(get_value(num)) LED_PORT |= _BV(LED);
+  else LED_PORT &= ~_BV(LED);
+ 134:	d9 98       	cbi	0x1b, 1	; 27
+  // num++;
+  // if(num > 1000) num = 0;
+  // LED_PORT &= ~_BV(LED);
+  uint8_t val = !(PINA & _BV(BUTTON));
+  // set_value(num,!val);
+  if(val) tab[num>>3] |= 1 << (num & 0x111);
+ 136:	ca 99       	sbic	0x19, 2	; 25
+ 138:	c9 cf       	rjmp	.-110    	; 0xcc <__vector_9+0x70>
+ 13a:	20 91 60 00 	lds	r18, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+ 13e:	30 91 61 00 	lds	r19, 0x0061	; 0x800061 <__DATA_REGION_ORIGIN__+0x1>
+ 142:	e0 91 60 00 	lds	r30, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+ 146:	f0 91 61 00 	lds	r31, 0x0061	; 0x800061 <__DATA_REGION_ORIGIN__+0x1>
+ 14a:	f6 95       	lsr	r31
+ 14c:	e7 95       	ror	r30
+ 14e:	f6 95       	lsr	r31
+ 150:	e7 95       	ror	r30
+ 152:	f6 95       	lsr	r31
+ 154:	e7 95       	ror	r30
+ 156:	ee 59       	subi	r30, 0x9E	; 158
+ 158:	ff 4f       	sbci	r31, 0xFF	; 255
+ 15a:	21 71       	andi	r18, 0x11	; 17
+ 15c:	31 70       	andi	r19, 0x01	; 1
+ 15e:	81 e0       	ldi	r24, 0x01	; 1
+ 160:	90 e0       	ldi	r25, 0x00	; 0
+ 162:	01 c0       	rjmp	.+2      	; 0x166 <__vector_9+0x10a>
+ 164:	88 0f       	add	r24, r24
+ 166:	2a 95       	dec	r18
+ 168:	ea f7       	brpl	.-6      	; 0x164 <__vector_9+0x108>
+ 16a:	90 81       	ld	r25, Z
+ 16c:	89 2b       	or	r24, r25
+ 16e:	80 83       	st	Z, r24
+ 170:	cb cf       	rjmp	.-106    	; 0x108 <__vector_9+0xac>
+
+00000172 <main>:
+  else tab[num>>3] &= ~ (1 << (num & 0x111));
+  num++;
+}
+
+int main() {
+  LED_DDR  |= _BV(LED);
+ 172:	d1 9a       	sbi	0x1a, 1	; 26
+  LED_PORT &= ~_BV(LED);
+ 174:	d9 98       	cbi	0x1b, 1	; 27
+    
+  BUTTON_DDR &= ~_BV(BUTTON);
+ 176:	d2 98       	cbi	0x1a, 2	; 26
+  BUTTON_PORT |= _BV(BUTTON);
+ 178:	da 9a       	sbi	0x1b, 2	; 27
+    
+  set_sleep_mode(SLEEP_MODE_IDLE);
+ 17a:	85 b7       	in	r24, 0x35	; 53
+ 17c:	87 7e       	andi	r24, 0xE7	; 231
+ 17e:	85 bf       	out	0x35, r24	; 53
+  sei();
+ 180:	78 94       	sei
+// FCPU 1 000 000
+// -> 1000
+// F_OC1A  = FCPU / (2 * N * (1 + OCR1A))
+
+void timer0_init(){
+    TCCR0A |= _BV(WGM00);
+ 182:	80 b7       	in	r24, 0x30	; 48
+ 184:	81 60       	ori	r24, 0x01	; 1
+ 186:	80 bf       	out	0x30, r24	; 48
+    TCCR0B |= _BV(CS01);// |  _BV(CS10);
+ 188:	83 b7       	in	r24, 0x33	; 51
+ 18a:	82 60       	ori	r24, 0x02	; 2
+ 18c:	83 bf       	out	0x33, r24	; 51
+    TIMSK0 |= _BV(OCIE0A);
+ 18e:	89 b7       	in	r24, 0x39	; 57
+ 190:	82 60       	ori	r24, 0x02	; 2
+ 192:	89 bf       	out	0x39, r24	; 57
+    OCR0A = 124;
+ 194:	8c e7       	ldi	r24, 0x7C	; 124
+ 196:	86 bf       	out	0x36, r24	; 54
+    
+  set_sleep_mode(SLEEP_MODE_IDLE);
+  sei();
+  timer0_init();
+  while(1){
+    sleep_mode();
+ 198:	85 b7       	in	r24, 0x35	; 53
+ 19a:	80 62       	ori	r24, 0x20	; 32
+ 19c:	85 bf       	out	0x35, r24	; 53
+ 19e:	88 95       	sleep
+ 1a0:	85 b7       	in	r24, 0x35	; 53
+ 1a2:	8f 7d       	andi	r24, 0xDF	; 223
+ 1a4:	85 bf       	out	0x35, r24	; 53
+ 1a6:	f8 cf       	rjmp	.-16     	; 0x198 <main+0x26>
+
+000001a8 <_exit>:
+ 1a8:	f8 94       	cli
+
+000001aa <__stop_program>:
+ 1aa:	ff cf       	rjmp	.-2      	; 0x1aa <__stop_program>

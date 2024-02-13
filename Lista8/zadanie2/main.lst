@@ -1,0 +1,525 @@
+   1               		.file	"main.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   9               		.text
+  10               	.Ltext0:
+ 187               	.global	uart_transmit
+ 189               	uart_transmit:
+ 190               		.stabd	46,0,0
+   1:main.c        **** #define __AVR_ATmega328P__
+   2:main.c        **** #ifndef F_CPU
+   3:main.c        **** #define F_CPU 16000000UL
+   4:main.c        **** #endif
+   5:main.c        **** 
+   6:main.c        **** 
+   7:main.c        **** #include "FreeRTOS.h"
+   8:main.c        **** #include "task.h"
+   9:main.c        **** #include "queue.h"
+  10:main.c        **** #include <avr/io.h>
+  11:main.c        **** #include <stdio.h>
+  12:main.c        **** 
+  13:main.c        **** #define mainBlinker     2
+  14:main.c        **** #define mainWriter      1
+  15:main.c        **** 
+  16:main.c        **** #define BAUD 9600                          // baudrate
+  17:main.c        **** #define UBRR_VALUE ((F_CPU)/16/(BAUD)-1)   // zgodnie ze wzorem
+  18:main.c        **** 
+  19:main.c        **** static void vBlinker(void* pvParameters);
+  20:main.c        **** static void vWriter(void* pvParameters);
+  21:main.c        **** 
+  22:main.c        **** int uart_transmit(char c, FILE *stream);
+  23:main.c        **** int uart_receive(FILE *stream);
+  24:main.c        **** 
+  25:main.c        **** FILE uart_file = FDEV_SETUP_STREAM(uart_transmit, uart_receive, _FDEV_SETUP_RW);
+  26:main.c        **** 
+  27:main.c        **** // inicjalizacja UART
+  28:main.c        **** void uart_init(void)
+  29:main.c        **** {
+  30:main.c        ****   // ustaw baudrate
+  31:main.c        ****   UBRR0 = UBRR_VALUE;
+  32:main.c        ****   // wyczyść rejestr UCSR0A
+  33:main.c        ****   UCSR0A = 0;
+  34:main.c        ****   // włącz odbiornik i nadajnik
+  35:main.c        ****   UCSR0B = _BV(RXEN0) | _BV(TXEN0);
+  36:main.c        ****   // ustaw format 8n1
+  37:main.c        ****   UCSR0C = _BV(UCSZ00) | _BV(UCSZ01);
+  38:main.c        **** }
+  39:main.c        **** 
+  40:main.c        **** int uart_transmit(char c, FILE *stream) {
+ 192               	.LM0:
+ 193               	.LFBB1:
+ 194 0000 CF93      		push r28
+ 195               	/* prologue: function */
+ 196               	/* frame size = 0 */
+ 197               	/* stack size = 1 */
+ 198               	.L__stack_usage = 1
+ 199 0002 C82F      		mov r28,r24
+ 200               	.L2:
+  41:main.c        ****   while (!(UCSR0A & _BV(UDRE0))) taskYIELD();
+ 202               	.LM1:
+ 203 0004 8091 C000 		lds r24,192
+ 204 0008 85FD      		sbrc r24,5
+ 205 000a 00C0      		rjmp .L5
+ 207               	.LM2:
+ 208 000c 0E94 0000 		call vPortYield
+ 209 0010 00C0      		rjmp .L2
+ 210               	.L5:
+  42:main.c        ****   UDR0 = c;
+ 212               	.LM3:
+ 213 0012 C093 C600 		sts 198,r28
+  43:main.c        ****   return 0;
+  44:main.c        **** }
+ 215               	.LM4:
+ 216 0016 80E0      		ldi r24,0
+ 217 0018 90E0      		ldi r25,0
+ 218               	/* epilogue start */
+ 219 001a CF91      		pop r28
+ 220 001c 0895      		ret
+ 222               	.Lscope1:
+ 224               		.stabd	78,0,0
+ 227               	.global	uart_receive
+ 229               	uart_receive:
+ 230               		.stabd	46,0,0
+  45:main.c        **** 
+  46:main.c        **** int uart_receive(FILE *stream) {
+ 232               	.LM5:
+ 233               	.LFBB2:
+ 234               	/* prologue: function */
+ 235               	/* frame size = 0 */
+ 236               	/* stack size = 0 */
+ 237               	.L__stack_usage = 0
+ 238               	.L7:
+  47:main.c        ****   while (!(UCSR0A & _BV(RXC0))) taskYIELD();
+ 240               	.LM6:
+ 241 001e 8091 C000 		lds r24,192
+ 242 0022 87FD      		sbrc r24,7
+ 243 0024 00C0      		rjmp .L9
+ 245               	.LM7:
+ 246 0026 0E94 0000 		call vPortYield
+ 247 002a 00C0      		rjmp .L7
+ 248               	.L9:
+  48:main.c        ****   return UDR0;
+ 250               	.LM8:
+ 251 002c 8091 C600 		lds r24,198
+  49:main.c        **** }
+ 253               	.LM9:
+ 254 0030 90E0      		ldi r25,0
+ 255 0032 0895      		ret
+ 257               	.Lscope2:
+ 259               		.stabd	78,0,0
+ 260               		.section	.rodata.str1.1,"aMS",@progbits,1
+ 261               	.LC0:
+ 262 0000 5770 6973 		.string	"Wpisz wartosc\r"
+ 262      7A20 7761 
+ 262      7274 6F73 
+ 262      630D 00
+ 263               	.LC1:
+ 264 000f 2575 00   		.string	"%u"
+ 265               	.LC2:
+ 266 0012 5365 6E64 		.string	"Send:\t%u\r\n"
+ 266      3A09 2575 
+ 266      0D0A 00
+ 267               	.LC3:
+ 268 001d 434F 554C 		.string	"COULDN'T SEND VALUE\r"
+ 268      444E 2754 
+ 268      2053 454E 
+ 268      4420 5641 
+ 268      4C55 450D 
+ 269               		.text
+ 273               	vWriter:
+ 274               		.stabd	46,0,0
+  50:main.c        **** 
+  51:main.c        **** QueueHandle_t xQueue;
+  52:main.c        **** int main(void)
+  53:main.c        **** {
+  54:main.c        ****     xQueue = xQueueCreate(10,sizeof(uint16_t));
+  55:main.c        ****     uart_init();
+  56:main.c        ****     stdin = stdout = stderr = &uart_file;
+  57:main.c        ****     xTaskHandle writer_hendler;
+  58:main.c        ****     xTaskHandle blinker_hendler;
+  59:main.c        ****     xTaskCreate(vBlinker,"blink",600,NULL,mainBlinker,&blinker_hendler);
+  60:main.c        ****     xTaskCreate(vWriter,"writer",600,NULL,mainWriter,&writer_hendler);
+  61:main.c        ****     
+  62:main.c        ****     // Start scheduler.
+  63:main.c        ****     vTaskStartScheduler();
+  64:main.c        **** 
+  65:main.c        ****     return 0;
+  66:main.c        **** }
+  67:main.c        **** 
+  68:main.c        **** 
+  69:main.c        **** void vApplicationIdleHook(void)
+  70:main.c        **** {
+  71:main.c        **** 
+  72:main.c        **** }
+  73:main.c        **** 
+  74:main.c        **** static void vWriter(void* pvParameters)
+  75:main.c        **** {
+ 276               	.LM10:
+ 277               	.LFBB3:
+ 278 0034 CF93      		push r28
+ 279 0036 DF93      		push r29
+ 280 0038 00D0      		rcall .
+ 281 003a CDB7      		in r28,__SP_L__
+ 282 003c DEB7      		in r29,__SP_H__
+ 283               	/* prologue: function */
+ 284               	/* frame size = 2 */
+ 285               	/* stack size = 4 */
+ 286               	.L__stack_usage = 4
+  76:main.c        ****     BaseType_t xStatus;
+  77:main.c        ****     uint16_t SendValue;
+  78:main.c        ****     printf("Wpisz wartosc\r\n");
+ 288               	.LM11:
+ 289 003e 80E0      		ldi r24,lo8(.LC0)
+ 290 0040 90E0      		ldi r25,hi8(.LC0)
+ 291 0042 0E94 0000 		call puts
+  79:main.c        ****     while(1){
+  80:main.c        ****         scanf("%"SCNu16,&SendValue);
+ 293               	.LM12:
+ 294 0046 8E01      		movw r16,r28
+ 295 0048 0F5F      		subi r16,-1
+ 296 004a 1F4F      		sbci r17,-1
+ 297 004c 80E0      		ldi r24,lo8(.LC1)
+ 298 004e E82E      		mov r14,r24
+ 299 0050 80E0      		ldi r24,hi8(.LC1)
+ 300 0052 F82E      		mov r15,r24
+  81:main.c        ****         printf("Send:\t%"PRIu16"\r\n",SendValue);
+ 302               	.LM13:
+ 303 0054 90E0      		ldi r25,lo8(.LC2)
+ 304 0056 C92E      		mov r12,r25
+ 305 0058 90E0      		ldi r25,hi8(.LC2)
+ 306 005a D92E      		mov r13,r25
+ 307               	.L11:
+  80:main.c        ****         printf("Send:\t%"PRIu16"\r\n",SendValue);
+ 309               	.LM14:
+ 310 005c 1F93      		push r17
+ 311 005e 0F93      		push r16
+ 312 0060 FF92      		push r15
+ 313 0062 EF92      		push r14
+ 314 0064 0E94 0000 		call scanf
+ 316               	.LM15:
+ 317 0068 8A81      		ldd r24,Y+2
+ 318 006a 8F93      		push r24
+ 319 006c 8981      		ldd r24,Y+1
+ 320 006e 8F93      		push r24
+ 321 0070 DF92      		push r13
+ 322 0072 CF92      		push r12
+ 323 0074 0E94 0000 		call printf
+  82:main.c        ****         xStatus = xQueueSendToBack(xQueue,&SendValue,0);
+ 325               	.LM16:
+ 326 0078 20E0      		ldi r18,0
+ 327 007a 40E0      		ldi r20,0
+ 328 007c 50E0      		ldi r21,0
+ 329 007e B801      		movw r22,r16
+ 330 0080 8091 0000 		lds r24,xQueue
+ 331 0084 9091 0000 		lds r25,xQueue+1
+ 332 0088 0E94 0000 		call xQueueGenericSend
+  83:main.c        ****         if(xStatus != pdPASS) printf("COULDN'T SEND VALUE\r\n");
+ 334               	.LM17:
+ 335 008c 0FB6      		in __tmp_reg__,__SREG__
+ 336 008e F894      		cli
+ 337 0090 DEBF      		out __SP_H__,r29
+ 338 0092 0FBE      		out __SREG__,__tmp_reg__
+ 339 0094 CDBF      		out __SP_L__,r28
+ 340 0096 8130      		cpi r24,lo8(1)
+ 341 0098 01F0      		breq .L11
+ 343               	.LM18:
+ 344 009a 80E0      		ldi r24,lo8(.LC3)
+ 345 009c 90E0      		ldi r25,hi8(.LC3)
+ 346 009e 0E94 0000 		call puts
+ 347 00a2 00C0      		rjmp .L11
+ 352               	.Lscope3:
+ 354               		.stabd	78,0,0
+ 356               	.global	uart_init
+ 358               	uart_init:
+ 359               		.stabd	46,0,0
+  29:main.c        ****   // ustaw baudrate
+ 361               	.LM19:
+ 362               	.LFBB4:
+ 363               	/* prologue: function */
+ 364               	/* frame size = 0 */
+ 365               	/* stack size = 0 */
+ 366               	.L__stack_usage = 0
+  31:main.c        ****   // wyczyść rejestr UCSR0A
+ 368               	.LM20:
+ 369 00a4 87E6      		ldi r24,lo8(103)
+ 370 00a6 90E0      		ldi r25,0
+ 371 00a8 9093 C500 		sts 196+1,r25
+ 372 00ac 8093 C400 		sts 196,r24
+  33:main.c        ****   // włącz odbiornik i nadajnik
+ 374               	.LM21:
+ 375 00b0 1092 C000 		sts 192,__zero_reg__
+  35:main.c        ****   // ustaw format 8n1
+ 377               	.LM22:
+ 378 00b4 88E1      		ldi r24,lo8(24)
+ 379 00b6 8093 C100 		sts 193,r24
+  37:main.c        **** }
+ 381               	.LM23:
+ 382 00ba 86E0      		ldi r24,lo8(6)
+ 383 00bc 8093 C200 		sts 194,r24
+ 384 00c0 0895      		ret
+ 386               	.Lscope4:
+ 388               		.stabd	78,0,0
+ 389               		.section	.rodata.str1.1
+ 390               	.LC4:
+ 391 0032 5265 6164 		.string	"Read:\t%u\r\n"
+ 391      3A09 2575 
+ 391      0D0A 00
+ 392               		.text
+ 396               	vBlinker:
+ 397               		.stabd	46,0,0
+  84:main.c        ****     }
+  85:main.c        **** }
+  86:main.c        **** 
+  87:main.c        **** #define LED PB2
+  88:main.c        **** #define LED_DDR DDRB
+  89:main.c        **** #define LED_PORT PORTB
+  90:main.c        **** 
+  91:main.c        **** static void vBlinker(void* pvParameters)
+  92:main.c        **** {
+ 399               	.LM24:
+ 400               	.LFBB5:
+ 401 00c2 CF93      		push r28
+ 402 00c4 DF93      		push r29
+ 403 00c6 00D0      		rcall .
+ 404 00c8 CDB7      		in r28,__SP_L__
+ 405 00ca DEB7      		in r29,__SP_H__
+ 406               	/* prologue: function */
+ 407               	/* frame size = 2 */
+ 408               	/* stack size = 4 */
+ 409               	.L__stack_usage = 4
+  93:main.c        ****     uart_init();
+ 411               	.LM25:
+ 412 00cc 0E94 0000 		call uart_init
+  94:main.c        ****     stdin = stdout = stderr = &uart_file;
+ 414               	.LM26:
+ 415 00d0 80E0      		ldi r24,lo8(uart_file)
+ 416 00d2 90E0      		ldi r25,hi8(uart_file)
+ 417 00d4 9093 0000 		sts __iob+4+1,r25
+ 418 00d8 8093 0000 		sts __iob+4,r24
+ 419 00dc 9093 0000 		sts __iob+2+1,r25
+ 420 00e0 8093 0000 		sts __iob+2,r24
+ 421 00e4 9093 0000 		sts __iob+1,r25
+ 422 00e8 8093 0000 		sts __iob,r24
+  95:main.c        ****     BaseType_t xStatus;
+  96:main.c        ****     uint16_t value;
+  97:main.c        ****     const TickType_t xTicksToWait = pdMS_TO_TICKS(100);
+  98:main.c        ****     LED_DDR |= _BV(LED);
+ 424               	.LM27:
+ 425 00ec 229A      		sbi 0x4,2
+ 426               	.LBB2:
+  99:main.c        ****     while(1){
+ 100:main.c        ****         xStatus = xQueueReceive(xQueue,&value,100/portTICK_PERIOD_MS);
+ 101:main.c        ****         if(xStatus == pdPASS){
+ 102:main.c        ****             printf("Read:\t%"PRIu16"\r\n",value);
+ 428               	.LM28:
+ 429 00ee 00E0      		ldi r16,lo8(.LC4)
+ 430 00f0 10E0      		ldi r17,hi8(.LC4)
+ 431               	.L17:
+ 432               	.LBE2:
+ 100:main.c        ****         if(xStatus == pdPASS){
+ 434               	.LM29:
+ 435 00f2 44E6      		ldi r20,lo8(100)
+ 436 00f4 50E0      		ldi r21,0
+ 437 00f6 BE01      		movw r22,r28
+ 438 00f8 6F5F      		subi r22,-1
+ 439 00fa 7F4F      		sbci r23,-1
+ 440 00fc 8091 0000 		lds r24,xQueue
+ 441 0100 9091 0000 		lds r25,xQueue+1
+ 442 0104 0E94 0000 		call xQueueReceive
+ 101:main.c        ****             printf("Read:\t%"PRIu16"\r\n",value);
+ 444               	.LM30:
+ 445 0108 8130      		cpi r24,lo8(1)
+ 446 010a 01F4      		brne .L17
+ 447               	.LBB3:
+ 449               	.LM31:
+ 450 010c 8A81      		ldd r24,Y+2
+ 451 010e 8F93      		push r24
+ 452 0110 8981      		ldd r24,Y+1
+ 453 0112 8F93      		push r24
+ 454 0114 1F93      		push r17
+ 455 0116 0F93      		push r16
+ 456 0118 0E94 0000 		call printf
+ 103:main.c        ****             LED_PORT |= _BV(LED);
+ 458               	.LM32:
+ 459 011c 2A9A      		sbi 0x5,2
+ 104:main.c        ****             uint16_t timing = value/portTICK_PERIOD_MS;
+ 105:main.c        ****             vTaskDelay(timing);
+ 461               	.LM33:
+ 462 011e 8981      		ldd r24,Y+1
+ 463 0120 9A81      		ldd r25,Y+2
+ 464 0122 0E94 0000 		call vTaskDelay
+ 106:main.c        ****             // _delay_ms(value);
+ 107:main.c        ****             LED_PORT &= ~_BV(LED);
+ 466               	.LM34:
+ 467 0126 2A98      		cbi 0x5,2
+ 468 0128 0F90      		pop __tmp_reg__
+ 469 012a 0F90      		pop __tmp_reg__
+ 470 012c 0F90      		pop __tmp_reg__
+ 471 012e 0F90      		pop __tmp_reg__
+ 472 0130 00C0      		rjmp .L17
+ 473               	.LBE3:
+ 478               	.Lscope5:
+ 480               		.stabd	78,0,0
+ 481               		.section	.rodata.str1.1
+ 482               	.LC5:
+ 483 003d 626C 696E 		.string	"blink"
+ 483      6B00 
+ 484               	.LC6:
+ 485 0043 7772 6974 		.string	"writer"
+ 485      6572 00
+ 486               		.section	.text.startup,"ax",@progbits
+ 488               	.global	main
+ 490               	main:
+ 491               		.stabd	46,0,0
+  53:main.c        ****     xQueue = xQueueCreate(10,sizeof(uint16_t));
+ 493               	.LM35:
+ 494               	.LFBB6:
+ 495 0000 EF92      		push r14
+ 496 0002 FF92      		push r15
+ 497 0004 0F93      		push r16
+ 498 0006 CF93      		push r28
+ 499 0008 DF93      		push r29
+ 500 000a 00D0      		rcall .
+ 501 000c 00D0      		rcall .
+ 502 000e CDB7      		in r28,__SP_L__
+ 503 0010 DEB7      		in r29,__SP_H__
+ 504               	/* prologue: function */
+ 505               	/* frame size = 4 */
+ 506               	/* stack size = 9 */
+ 507               	.L__stack_usage = 9
+  54:main.c        ****     uart_init();
+ 509               	.LM36:
+ 510 0012 40E0      		ldi r20,0
+ 511 0014 62E0      		ldi r22,lo8(2)
+ 512 0016 8AE0      		ldi r24,lo8(10)
+ 513 0018 0E94 0000 		call xQueueGenericCreate
+ 514 001c 9093 0000 		sts xQueue+1,r25
+ 515 0020 8093 0000 		sts xQueue,r24
+  55:main.c        ****     stdin = stdout = stderr = &uart_file;
+ 517               	.LM37:
+ 518 0024 0E94 0000 		call uart_init
+  56:main.c        ****     xTaskHandle writer_hendler;
+ 520               	.LM38:
+ 521 0028 E0E0      		ldi r30,lo8(__iob)
+ 522 002a F0E0      		ldi r31,hi8(__iob)
+ 523 002c 80E0      		ldi r24,lo8(uart_file)
+ 524 002e 90E0      		ldi r25,hi8(uart_file)
+ 525 0030 9583      		std Z+5,r25
+ 526 0032 8483      		std Z+4,r24
+ 527 0034 9383      		std Z+3,r25
+ 528 0036 8283      		std Z+2,r24
+ 529 0038 9183      		std Z+1,r25
+ 530 003a 8083      		st Z,r24
+  59:main.c        ****     xTaskCreate(vWriter,"writer",600,NULL,mainWriter,&writer_hendler);
+ 532               	.LM39:
+ 533 003c CE01      		movw r24,r28
+ 534 003e 0196      		adiw r24,1
+ 535 0040 7C01      		movw r14,r24
+ 536 0042 02E0      		ldi r16,lo8(2)
+ 537 0044 20E0      		ldi r18,0
+ 538 0046 30E0      		ldi r19,0
+ 539 0048 48E5      		ldi r20,lo8(88)
+ 540 004a 52E0      		ldi r21,lo8(2)
+ 541 004c 60E0      		ldi r22,lo8(.LC5)
+ 542 004e 70E0      		ldi r23,hi8(.LC5)
+ 543 0050 80E0      		ldi r24,lo8(gs(vBlinker))
+ 544 0052 90E0      		ldi r25,hi8(gs(vBlinker))
+ 545 0054 0E94 0000 		call xTaskCreate
+  60:main.c        ****     
+ 547               	.LM40:
+ 548 0058 CE01      		movw r24,r28
+ 549 005a 0396      		adiw r24,3
+ 550 005c 7C01      		movw r14,r24
+ 551 005e 01E0      		ldi r16,lo8(1)
+ 552 0060 20E0      		ldi r18,0
+ 553 0062 30E0      		ldi r19,0
+ 554 0064 48E5      		ldi r20,lo8(88)
+ 555 0066 52E0      		ldi r21,lo8(2)
+ 556 0068 60E0      		ldi r22,lo8(.LC6)
+ 557 006a 70E0      		ldi r23,hi8(.LC6)
+ 558 006c 80E0      		ldi r24,lo8(gs(vWriter))
+ 559 006e 90E0      		ldi r25,hi8(gs(vWriter))
+ 560 0070 0E94 0000 		call xTaskCreate
+  63:main.c        **** 
+ 562               	.LM41:
+ 563 0074 0E94 0000 		call vTaskStartScheduler
+  66:main.c        **** 
+ 565               	.LM42:
+ 566 0078 80E0      		ldi r24,0
+ 567 007a 90E0      		ldi r25,0
+ 568               	/* epilogue start */
+ 569 007c 0F90      		pop __tmp_reg__
+ 570 007e 0F90      		pop __tmp_reg__
+ 571 0080 0F90      		pop __tmp_reg__
+ 572 0082 0F90      		pop __tmp_reg__
+ 573 0084 DF91      		pop r29
+ 574 0086 CF91      		pop r28
+ 575 0088 0F91      		pop r16
+ 576 008a FF90      		pop r15
+ 577 008c EF90      		pop r14
+ 578 008e 0895      		ret
+ 584               	.Lscope6:
+ 586               		.stabd	78,0,0
+ 587               		.text
+ 589               	.global	vApplicationIdleHook
+ 591               	vApplicationIdleHook:
+ 592               		.stabd	46,0,0
+  70:main.c        **** 
+ 594               	.LM43:
+ 595               	.LFBB7:
+ 596               	/* prologue: function */
+ 597               	/* frame size = 0 */
+ 598               	/* stack size = 0 */
+ 599               	.L__stack_usage = 0
+ 600 0132 0895      		ret
+ 602               	.Lscope7:
+ 604               		.stabd	78,0,0
+ 605               		.comm	xQueue,2,1
+ 606               	.global	uart_file
+ 607               		.data
+ 610               	uart_file:
+ 611 0000 0000 00   		.zero	3
+ 612 0003 03        		.byte	3
+ 613 0004 0000 0000 		.zero	4
+ 614 0008 0000      		.word	gs(uart_transmit)
+ 615 000a 0000      		.word	gs(uart_receive)
+ 616 000c 0000      		.word	0
+ 619               		.text
+ 621               	.Letext0:
+ 622               		.ident	"GCC: (GNU) 5.4.0"
+ 623               	.global __do_copy_data
+ 624               	.global __do_clear_bss
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 main.c
+     /tmp/ccR7zZU9.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccR7zZU9.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccR7zZU9.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccR7zZU9.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccR7zZU9.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccR7zZU9.s:189    .text:0000000000000000 uart_transmit
+     /tmp/ccR7zZU9.s:229    .text:000000000000001e uart_receive
+     /tmp/ccR7zZU9.s:273    .text:0000000000000034 vWriter
+                            *COM*:0000000000000002 xQueue
+     /tmp/ccR7zZU9.s:358    .text:00000000000000a4 uart_init
+     /tmp/ccR7zZU9.s:396    .text:00000000000000c2 vBlinker
+     /tmp/ccR7zZU9.s:610    .data:0000000000000000 uart_file
+     /tmp/ccR7zZU9.s:490    .text.startup:0000000000000000 main
+     /tmp/ccR7zZU9.s:591    .text:0000000000000132 vApplicationIdleHook
+
+UNDEFINED SYMBOLS
+vPortYield
+puts
+scanf
+printf
+xQueueGenericSend
+__iob
+xQueueReceive
+vTaskDelay
+xQueueGenericCreate
+xTaskCreate
+vTaskStartScheduler
+__do_copy_data
+__do_clear_bss

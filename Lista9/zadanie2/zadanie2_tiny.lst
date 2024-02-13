@@ -1,0 +1,392 @@
+
+zadanie2_tiny.elf:     file format elf32-avr
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .text         00000168  00000000  00000000  00000094  2**1
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  1 .data         00000000  00800060  00000168  000001fc  2**0
+                  CONTENTS, ALLOC, LOAD, DATA
+  2 .bss          00000003  00800060  00800060  000001fc  2**0
+                  ALLOC
+  3 .stab         00000978  00000000  00000000  000001fc  2**2
+                  CONTENTS, READONLY, DEBUGGING
+  4 .stabstr      00000ef7  00000000  00000000  00000b74  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  5 .comment      00000011  00000000  00000000  00001a6b  2**0
+                  CONTENTS, READONLY
+  6 .note.gnu.avr.deviceinfo 0000003c  00000000  00000000  00001a7c  2**2
+                  CONTENTS, READONLY
+  7 .debug_info   00000420  00000000  00000000  00001ab8  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  8 .debug_abbrev 000003e8  00000000  00000000  00001ed8  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  9 .debug_line   0000001a  00000000  00000000  000022c0  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 10 .debug_str    00000173  00000000  00000000  000022da  2**0
+                  CONTENTS, READONLY, DEBUGGING
+
+Disassembly of section .text:
+
+00000000 <__vectors>:
+   0:	10 c0       	rjmp	.+32     	; 0x22 <__ctors_end>
+   2:	1f c0       	rjmp	.+62     	; 0x42 <__bad_interrupt>
+   4:	1e c0       	rjmp	.+60     	; 0x42 <__bad_interrupt>
+   6:	1d c0       	rjmp	.+58     	; 0x42 <__bad_interrupt>
+   8:	1c c0       	rjmp	.+56     	; 0x42 <__bad_interrupt>
+   a:	1b c0       	rjmp	.+54     	; 0x42 <__bad_interrupt>
+   c:	1a c0       	rjmp	.+52     	; 0x42 <__bad_interrupt>
+   e:	19 c0       	rjmp	.+50     	; 0x42 <__bad_interrupt>
+  10:	18 c0       	rjmp	.+48     	; 0x42 <__bad_interrupt>
+  12:	1d c0       	rjmp	.+58     	; 0x4e <__vector_9>
+  14:	16 c0       	rjmp	.+44     	; 0x42 <__bad_interrupt>
+  16:	15 c0       	rjmp	.+42     	; 0x42 <__bad_interrupt>
+  18:	14 c0       	rjmp	.+40     	; 0x42 <__bad_interrupt>
+  1a:	13 c0       	rjmp	.+38     	; 0x42 <__bad_interrupt>
+  1c:	12 c0       	rjmp	.+36     	; 0x42 <__bad_interrupt>
+  1e:	11 c0       	rjmp	.+34     	; 0x42 <__bad_interrupt>
+  20:	10 c0       	rjmp	.+32     	; 0x42 <__bad_interrupt>
+
+00000022 <__ctors_end>:
+  22:	11 24       	eor	r1, r1
+  24:	1f be       	out	0x3f, r1	; 63
+  26:	cf e5       	ldi	r28, 0x5F	; 95
+  28:	d2 e0       	ldi	r29, 0x02	; 2
+  2a:	de bf       	out	0x3e, r29	; 62
+  2c:	cd bf       	out	0x3d, r28	; 61
+
+0000002e <__do_clear_bss>:
+  2e:	20 e0       	ldi	r18, 0x00	; 0
+  30:	a0 e6       	ldi	r26, 0x60	; 96
+  32:	b0 e0       	ldi	r27, 0x00	; 0
+  34:	01 c0       	rjmp	.+2      	; 0x38 <.do_clear_bss_start>
+
+00000036 <.do_clear_bss_loop>:
+  36:	1d 92       	st	X+, r1
+
+00000038 <.do_clear_bss_start>:
+  38:	a3 36       	cpi	r26, 0x63	; 99
+  3a:	b2 07       	cpc	r27, r18
+  3c:	e1 f7       	brne	.-8      	; 0x36 <.do_clear_bss_loop>
+  3e:	5a d0       	rcall	.+180    	; 0xf4 <main>
+  40:	91 c0       	rjmp	.+290    	; 0x164 <_exit>
+
+00000042 <__bad_interrupt>:
+  42:	de cf       	rjmp	.-68     	; 0x0 <__vectors>
+
+00000044 <init>:
+#define SPI_SS_PORT PORTA
+#define SLAVE_DESELECT SPI_SS_PORT |= _BV(SPI_SS)
+#define SLAVE_SELECT SPI_SS_PORT &= ~_BV(SPI_SS)
+
+void init(void) {
+  BUTTON_DDR &= ~_BV(BUTTON); // button input
+  44:	d7 98       	cbi	0x1a, 7	; 26
+  BUTTON_PORT |= _BV(BUTTON); // button pull-up
+  46:	df 9a       	sbi	0x1b, 7	; 27
+  LED_DDR |= _BV(LED);        // led output
+  48:	ba 9a       	sbi	0x17, 2	; 23
+  SPI_SS_DDR |= _BV(SPI_SS);
+  4a:	d3 9a       	sbi	0x1a, 3	; 26
+  4c:	08 95       	ret
+
+0000004e <__vector_9>:
+}
+
+volatile uint8_t DATA_TRANSFER = 0, DATA_READ = 0, COUNTER = 0;
+
+ISR(TIM0_COMPA_vect) {
+  4e:	1f 92       	push	r1
+  50:	0f 92       	push	r0
+  52:	0f b6       	in	r0, 0x3f	; 63
+  54:	0f 92       	push	r0
+  56:	11 24       	eor	r1, r1
+  58:	8f 93       	push	r24
+  5a:	9f 93       	push	r25
+  if (COUNTER < 8) {
+  5c:	80 91 60 00 	lds	r24, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+  60:	88 30       	cpi	r24, 0x08	; 8
+  62:	d0 f4       	brcc	.+52     	; 0x98 <__vector_9+0x4a>
+    DATA_TRANSFER = (DATA_TRANSFER << 1) | BUTTON_PRESSED;
+  64:	90 91 62 00 	lds	r25, 0x0062	; 0x800062 <DATA_TRANSFER>
+  68:	89 b3       	in	r24, 0x19	; 25
+  6a:	99 0f       	add	r25, r25
+  6c:	80 95       	com	r24
+  6e:	88 1f       	adc	r24, r24
+  70:	88 27       	eor	r24, r24
+  72:	88 1f       	adc	r24, r24
+  74:	89 2b       	or	r24, r25
+  76:	80 93 62 00 	sts	0x0062, r24	; 0x800062 <DATA_TRANSFER>
+    if (DATA_READ & 0x80)
+  7a:	80 91 61 00 	lds	r24, 0x0061	; 0x800061 <DATA_READ>
+  7e:	87 fd       	sbrc	r24, 7
+  80:	12 c0       	rjmp	.+36     	; 0xa6 <__vector_9+0x58>
+      LED_PORT |= _BV(LED);
+    else
+      LED_PORT &= ~_BV(LED);
+  82:	c2 98       	cbi	0x18, 2	; 24
+    DATA_READ <<= 1;
+  84:	80 91 61 00 	lds	r24, 0x0061	; 0x800061 <DATA_READ>
+  88:	88 0f       	add	r24, r24
+  8a:	80 93 61 00 	sts	0x0061, r24	; 0x800061 <DATA_READ>
+    COUNTER++;
+  8e:	80 91 60 00 	lds	r24, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+  92:	8f 5f       	subi	r24, 0xFF	; 255
+  94:	80 93 60 00 	sts	0x0060, r24	; 0x800060 <__DATA_REGION_ORIGIN__>
+  }
+}
+  98:	9f 91       	pop	r25
+  9a:	8f 91       	pop	r24
+  9c:	0f 90       	pop	r0
+  9e:	0f be       	out	0x3f, r0	; 63
+  a0:	0f 90       	pop	r0
+  a2:	1f 90       	pop	r1
+  a4:	18 95       	reti
+
+ISR(TIM0_COMPA_vect) {
+  if (COUNTER < 8) {
+    DATA_TRANSFER = (DATA_TRANSFER << 1) | BUTTON_PRESSED;
+    if (DATA_READ & 0x80)
+      LED_PORT |= _BV(LED);
+  a6:	c2 9a       	sbi	0x18, 2	; 24
+  a8:	ed cf       	rjmp	.-38     	; 0x84 <__vector_9+0x36>
+
+000000aa <timer_init>:
+  }
+}
+
+void timer_init() {
+  // ctc mode tak zeby przerwanie było co 1/100 s (na oko)
+  TCCR0A = _BV(WGM01); // CTC
+  aa:	82 e0       	ldi	r24, 0x02	; 2
+  ac:	80 bf       	out	0x30, r24	; 48
+  TCCR0B = _BV(CS02);  // clk_io /256
+  ae:	84 e0       	ldi	r24, 0x04	; 4
+  b0:	83 bf       	out	0x33, r24	; 51
+  OCR0A = 30;          // 100Hz
+  b2:	8e e1       	ldi	r24, 0x1E	; 30
+  b4:	86 bf       	out	0x36, r24	; 54
+  TIMSK0 |= _BV(OCIE0A);
+  b6:	89 b7       	in	r24, 0x39	; 57
+  b8:	82 60       	ori	r24, 0x02	; 2
+  ba:	89 bf       	out	0x39, r24	; 57
+  bc:	08 95       	ret
+
+000000be <spi_init>:
+}
+
+void spi_init() {
+  // ustaw piny MOSI i SCK jako wyjścia
+  DDRA = _BV(DDA4) | _BV(DDA5);
+  be:	80 e3       	ldi	r24, 0x30	; 48
+  c0:	8a bb       	out	0x1a, r24	; 26
+  // ustaw USI w trybie trzyprzewodowym (SPI)
+  USICR = _BV(USIWM0);
+  c2:	80 e1       	ldi	r24, 0x10	; 16
+  c4:	8d b9       	out	0x0d, r24	; 13
+  SLAVE_DESELECT;
+  c6:	db 9a       	sbi	0x1b, 3	; 27
+  c8:	08 95       	ret
+
+000000ca <spi_transfer>:
+}
+
+void spi_transfer(void) {
+  SLAVE_SELECT;
+  ca:	db 98       	cbi	0x1b, 3	; 27
+	#else
+		//round up by default
+		__ticks_dc = (uint32_t)(ceil(fabs(__tmp)));
+	#endif
+
+	__builtin_avr_delay_cycles(__ticks_dc);
+  cc:	83 e0       	ldi	r24, 0x03	; 3
+  ce:	8a 95       	dec	r24
+  d0:	f1 f7       	brne	.-4      	; 0xce <spi_transfer+0x4>
+  d2:	00 00       	nop
+  _delay_us(10);
+  // załaduj dane do przesłania
+  USIDR = DATA_TRANSFER;
+  d4:	80 91 62 00 	lds	r24, 0x0062	; 0x800062 <DATA_TRANSFER>
+  d8:	8f b9       	out	0x0f, r24	; 15
+  // wyczyść flagę przerwania USI
+  USISR = _BV(USIOIF);
+  da:	80 e4       	ldi	r24, 0x40	; 64
+  dc:	8e b9       	out	0x0e, r24	; 14
+  // póki transmisja nie została ukończona, wysyłaj impulsy zegara
+  while (!(USISR & _BV(USIOIF))) {
+  de:	76 99       	sbic	0x0e, 6	; 14
+  e0:	04 c0       	rjmp	.+8      	; 0xea <spi_transfer+0x20>
+    // wygeneruj pojedyncze zbocze zegarowe
+    // zostanie wykonane 16 razy
+    USICR = _BV(USIWM0) | _BV(USICS1) | _BV(USICLK) | _BV(USITC);
+  e2:	8b e1       	ldi	r24, 0x1B	; 27
+  e4:	8d b9       	out	0x0d, r24	; 13
+  // załaduj dane do przesłania
+  USIDR = DATA_TRANSFER;
+  // wyczyść flagę przerwania USI
+  USISR = _BV(USIOIF);
+  // póki transmisja nie została ukończona, wysyłaj impulsy zegara
+  while (!(USISR & _BV(USIOIF))) {
+  e6:	76 9b       	sbis	0x0e, 6	; 14
+  e8:	fd cf       	rjmp	.-6      	; 0xe4 <spi_transfer+0x1a>
+    // wygeneruj pojedyncze zbocze zegarowe
+    // zostanie wykonane 16 razy
+    USICR = _BV(USIWM0) | _BV(USICS1) | _BV(USICLK) | _BV(USITC);
+  }
+  SLAVE_DESELECT;
+  ea:	db 9a       	sbi	0x1b, 3	; 27
+  // zwróć otrzymane dane
+  DATA_READ = USIDR;
+  ec:	8f b1       	in	r24, 0x0f	; 15
+  ee:	80 93 61 00 	sts	0x0061, r24	; 0x800061 <DATA_READ>
+}
+  f2:	08 95       	ret
+
+000000f4 <main>:
+#define SPI_SS_PORT PORTA
+#define SLAVE_DESELECT SPI_SS_PORT |= _BV(SPI_SS)
+#define SLAVE_SELECT SPI_SS_PORT &= ~_BV(SPI_SS)
+
+void init(void) {
+  BUTTON_DDR &= ~_BV(BUTTON); // button input
+  f4:	d7 98       	cbi	0x1a, 7	; 26
+  BUTTON_PORT |= _BV(BUTTON); // button pull-up
+  f6:	df 9a       	sbi	0x1b, 7	; 27
+  LED_DDR |= _BV(LED);        // led output
+  f8:	ba 9a       	sbi	0x17, 2	; 23
+  SPI_SS_DDR |= _BV(SPI_SS);
+  fa:	d3 9a       	sbi	0x1a, 3	; 26
+  TIMSK0 |= _BV(OCIE0A);
+}
+
+void spi_init() {
+  // ustaw piny MOSI i SCK jako wyjścia
+  DDRA = _BV(DDA4) | _BV(DDA5);
+  fc:	80 e3       	ldi	r24, 0x30	; 48
+  fe:	8a bb       	out	0x1a, r24	; 26
+  // ustaw USI w trybie trzyprzewodowym (SPI)
+  USICR = _BV(USIWM0);
+ 100:	80 e1       	ldi	r24, 0x10	; 16
+ 102:	8d b9       	out	0x0d, r24	; 13
+  SLAVE_DESELECT;
+ 104:	db 9a       	sbi	0x1b, 3	; 27
+  }
+}
+
+void timer_init() {
+  // ctc mode tak zeby przerwanie było co 1/100 s (na oko)
+  TCCR0A = _BV(WGM01); // CTC
+ 106:	82 e0       	ldi	r24, 0x02	; 2
+ 108:	80 bf       	out	0x30, r24	; 48
+  TCCR0B = _BV(CS02);  // clk_io /256
+ 10a:	84 e0       	ldi	r24, 0x04	; 4
+ 10c:	83 bf       	out	0x33, r24	; 51
+  OCR0A = 30;          // 100Hz
+ 10e:	8e e1       	ldi	r24, 0x1E	; 30
+ 110:	86 bf       	out	0x36, r24	; 54
+  TIMSK0 |= _BV(OCIE0A);
+ 112:	89 b7       	in	r24, 0x39	; 57
+ 114:	82 60       	ori	r24, 0x02	; 2
+ 116:	89 bf       	out	0x39, r24	; 57
+int main() {
+  init();
+  spi_init();
+  timer_init();
+  // ustaw tryb uśpienia na tryb bezczynności
+  set_sleep_mode(SLEEP_MODE_IDLE);
+ 118:	85 b7       	in	r24, 0x35	; 53
+ 11a:	87 7e       	andi	r24, 0xE7	; 231
+ 11c:	85 bf       	out	0x35, r24	; 53
+  // odmaskuj przerwania
+  sei();
+ 11e:	78 94       	sei
+  SLAVE_SELECT;
+  _delay_us(10);
+  // załaduj dane do przesłania
+  USIDR = DATA_TRANSFER;
+  // wyczyść flagę przerwania USI
+  USISR = _BV(USIOIF);
+ 120:	20 e4       	ldi	r18, 0x40	; 64
+  // póki transmisja nie została ukończona, wysyłaj impulsy zegara
+  while (!(USISR & _BV(USIOIF))) {
+    // wygeneruj pojedyncze zbocze zegarowe
+    // zostanie wykonane 16 razy
+    USICR = _BV(USIWM0) | _BV(USICS1) | _BV(USICLK) | _BV(USITC);
+ 122:	9b e1       	ldi	r25, 0x1B	; 27
+  set_sleep_mode(SLEEP_MODE_IDLE);
+  // odmaskuj przerwania
+  sei();
+  // program testowy
+  while (1) {
+    sleep_mode();
+ 124:	85 b7       	in	r24, 0x35	; 53
+ 126:	80 62       	ori	r24, 0x20	; 32
+ 128:	85 bf       	out	0x35, r24	; 53
+ 12a:	88 95       	sleep
+ 12c:	85 b7       	in	r24, 0x35	; 53
+ 12e:	8f 7d       	andi	r24, 0xDF	; 223
+ 130:	85 bf       	out	0x35, r24	; 53
+    if (COUNTER >= 8) {
+ 132:	80 91 60 00 	lds	r24, 0x0060	; 0x800060 <__DATA_REGION_ORIGIN__>
+ 136:	88 30       	cpi	r24, 0x08	; 8
+ 138:	a8 f3       	brcs	.-22     	; 0x124 <main+0x30>
+  USICR = _BV(USIWM0);
+  SLAVE_DESELECT;
+}
+
+void spi_transfer(void) {
+  SLAVE_SELECT;
+ 13a:	db 98       	cbi	0x1b, 3	; 27
+ 13c:	83 e0       	ldi	r24, 0x03	; 3
+ 13e:	8a 95       	dec	r24
+ 140:	f1 f7       	brne	.-4      	; 0x13e <main+0x4a>
+ 142:	00 00       	nop
+  _delay_us(10);
+  // załaduj dane do przesłania
+  USIDR = DATA_TRANSFER;
+ 144:	80 91 62 00 	lds	r24, 0x0062	; 0x800062 <DATA_TRANSFER>
+ 148:	8f b9       	out	0x0f, r24	; 15
+  // wyczyść flagę przerwania USI
+  USISR = _BV(USIOIF);
+ 14a:	2e b9       	out	0x0e, r18	; 14
+  // póki transmisja nie została ukończona, wysyłaj impulsy zegara
+  while (!(USISR & _BV(USIOIF))) {
+ 14c:	76 99       	sbic	0x0e, 6	; 14
+ 14e:	03 c0       	rjmp	.+6      	; 0x156 <main+0x62>
+    // wygeneruj pojedyncze zbocze zegarowe
+    // zostanie wykonane 16 razy
+    USICR = _BV(USIWM0) | _BV(USICS1) | _BV(USICLK) | _BV(USITC);
+ 150:	9d b9       	out	0x0d, r25	; 13
+  // załaduj dane do przesłania
+  USIDR = DATA_TRANSFER;
+  // wyczyść flagę przerwania USI
+  USISR = _BV(USIOIF);
+  // póki transmisja nie została ukończona, wysyłaj impulsy zegara
+  while (!(USISR & _BV(USIOIF))) {
+ 152:	76 9b       	sbis	0x0e, 6	; 14
+ 154:	fd cf       	rjmp	.-6      	; 0x150 <main+0x5c>
+    // wygeneruj pojedyncze zbocze zegarowe
+    // zostanie wykonane 16 razy
+    USICR = _BV(USIWM0) | _BV(USICS1) | _BV(USICLK) | _BV(USITC);
+  }
+  SLAVE_DESELECT;
+ 156:	db 9a       	sbi	0x1b, 3	; 27
+  // zwróć otrzymane dane
+  DATA_READ = USIDR;
+ 158:	8f b1       	in	r24, 0x0f	; 15
+ 15a:	80 93 61 00 	sts	0x0061, r24	; 0x800061 <DATA_READ>
+  // program testowy
+  while (1) {
+    sleep_mode();
+    if (COUNTER >= 8) {
+      spi_transfer();
+      COUNTER = 0;
+ 15e:	10 92 60 00 	sts	0x0060, r1	; 0x800060 <__DATA_REGION_ORIGIN__>
+ 162:	e0 cf       	rjmp	.-64     	; 0x124 <main+0x30>
+
+00000164 <_exit>:
+ 164:	f8 94       	cli
+
+00000166 <__stop_program>:
+ 166:	ff cf       	rjmp	.-2      	; 0x166 <__stop_program>

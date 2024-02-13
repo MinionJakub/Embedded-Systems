@@ -1,0 +1,794 @@
+   1               		.file	"main.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   9               		.text
+  10               	.Ltext0:
+ 190               	.global	uart_transmit
+ 192               	uart_transmit:
+ 193               		.stabd	46,0,0
+   1:main.c        **** #define __AVR_ATmega328P__
+   2:main.c        **** #include "FreeRTOS.h"
+   3:main.c        **** #include "task.h"
+   4:main.c        **** #include <avr/io.h>
+   5:main.c        **** #include <stdio.h>
+   6:main.c        **** #ifndef F_CPU
+   7:main.c        **** #define F_CPU 16000000UL
+   8:main.c        **** #endif
+   9:main.c        **** #ifndef BAUD
+  10:main.c        **** #define BAUD 9600
+  11:main.c        **** #endif
+  12:main.c        **** #include <util/setbaud.h>
+  13:main.c        **** #include "semphr.h"
+  14:main.c        **** #include <avr/interrupt.h>
+  15:main.c        **** 
+  16:main.c        **** #define mainADC_TASK_1   1
+  17:main.c        **** #define mainADC_TASK_2   1
+  18:main.c        **** #define mainADC_TASK_3   1
+  19:main.c        **** 
+  20:main.c        **** static void vADC_READ1(void *pvParameters);
+  21:main.c        **** static void vADC_READ2(void *pvParameters);
+  22:main.c        **** static void vADC_READ3(void *pvParameters);
+  23:main.c        **** 
+  24:main.c        **** int uart_transmit(char c, FILE *stream);
+  25:main.c        **** int uart_receive(FILE *stream);
+  26:main.c        **** 
+  27:main.c        **** FILE uart_file = FDEV_SETUP_STREAM(uart_transmit, uart_receive, _FDEV_SETUP_RW);
+  28:main.c        **** 
+  29:main.c        **** void uart_init() {
+  30:main.c        ****   UBRR0H = UBRRH_VALUE;
+  31:main.c        ****   UBRR0L = UBRRL_VALUE;
+  32:main.c        **** #if USE_2X
+  33:main.c        ****   UCSR0A |= _BV(U2X0);
+  34:main.c        **** #else
+  35:main.c        ****   UCSR0A &= ~(_BV(U2X0));
+  36:main.c        **** #endif
+  37:main.c        ****   UCSR0C = _BV(UCSZ01) | _BV(UCSZ00); /* 8-bit data */
+  38:main.c        ****   UCSR0B = _BV(RXEN0) | _BV(TXEN0); /* Enable RX and TX */
+  39:main.c        **** }
+  40:main.c        **** 
+  41:main.c        **** int uart_transmit(char c, FILE *stream) {
+ 195               	.LM0:
+ 196               	.LFBB1:
+ 197 0000 CF93      		push r28
+ 198               	/* prologue: function */
+ 199               	/* frame size = 0 */
+ 200               	/* stack size = 1 */
+ 201               	.L__stack_usage = 1
+ 202 0002 C82F      		mov r28,r24
+ 203               	.L2:
+  42:main.c        ****   while (!(UCSR0A & _BV(UDRE0))) taskYIELD();
+ 205               	.LM1:
+ 206 0004 8091 C000 		lds r24,192
+ 207 0008 85FD      		sbrc r24,5
+ 208 000a 00C0      		rjmp .L5
+ 210               	.LM2:
+ 211 000c 0E94 0000 		call vPortYield
+ 212 0010 00C0      		rjmp .L2
+ 213               	.L5:
+  43:main.c        ****   UDR0 = c;
+ 215               	.LM3:
+ 216 0012 C093 C600 		sts 198,r28
+  44:main.c        ****   return 0;
+  45:main.c        **** }
+ 218               	.LM4:
+ 219 0016 80E0      		ldi r24,0
+ 220 0018 90E0      		ldi r25,0
+ 221               	/* epilogue start */
+ 222 001a CF91      		pop r28
+ 223 001c 0895      		ret
+ 225               	.Lscope1:
+ 227               		.stabd	78,0,0
+ 230               	.global	uart_receive
+ 232               	uart_receive:
+ 233               		.stabd	46,0,0
+  46:main.c        **** 
+  47:main.c        **** int uart_receive(FILE *stream) {
+ 235               	.LM5:
+ 236               	.LFBB2:
+ 237               	/* prologue: function */
+ 238               	/* frame size = 0 */
+ 239               	/* stack size = 0 */
+ 240               	.L__stack_usage = 0
+ 241               	.L7:
+  48:main.c        ****   while (!(UCSR0A & _BV(RXC0))) taskYIELD();
+ 243               	.LM6:
+ 244 001e 8091 C000 		lds r24,192
+ 245 0022 87FD      		sbrc r24,7
+ 246 0024 00C0      		rjmp .L9
+ 248               	.LM7:
+ 249 0026 0E94 0000 		call vPortYield
+ 250 002a 00C0      		rjmp .L7
+ 251               	.L9:
+  49:main.c        ****   return UDR0;
+ 253               	.LM8:
+ 254 002c 8091 C600 		lds r24,198
+  50:main.c        **** }
+ 256               	.LM9:
+ 257 0030 90E0      		ldi r25,0
+ 258 0032 0895      		ret
+ 260               	.Lscope2:
+ 262               		.stabd	78,0,0
+ 266               	readADC:
+ 267               		.stabd	46,0,0
+  51:main.c        **** 
+  52:main.c        **** SemaphoreHandle_t semADC, semADCComplete, printSEM;
+  53:main.c        **** 
+  54:main.c        **** void adc_init(){
+  55:main.c        ****     ADMUX = _BV(REFS0); // referencja AVcc
+  56:main.c        ****     DIDR0 = _BV(ADC0D) | _BV(ADC1D) | _BV(ADC2D); // wyłącz wejście cyfrowe na ADC0, ADC1, ADC2
+  57:main.c        ****     ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADPS2); // preskaler 128
+  58:main.c        ****     ADCSRA |= _BV(ADEN); // włącz ADC
+  59:main.c        ****     ADCSRA |= _BV(ADIE); // włącz interupty nad ADC
+  60:main.c        **** }
+  61:main.c        **** 
+  62:main.c        **** int main(void)
+  63:main.c        **** {
+  64:main.c        ****     xTaskHandle adc1,adc2,adc3;
+  65:main.c        ****     uart_init();
+  66:main.c        ****     stdin = stdout = stderr = &uart_file;
+  67:main.c        ****     adc_init();
+  68:main.c        **** 
+  69:main.c        ****     sei();
+  70:main.c        ****     semADC = xSemaphoreCreateBinary();
+  71:main.c        ****     // semADCComplete = xSemaphoreCreateBinary();
+  72:main.c        ****     // printSEM = xSemaphoreCreateBinary();
+  73:main.c        **** 
+  74:main.c        ****     xSemaphoreGive(semADC);
+  75:main.c        ****     // xSemaphoreGive(printSEM);
+  76:main.c        **** 
+  77:main.c        ****     xTaskCreate(vADC_READ1,"ADC1",400,(void*)0,mainADC_TASK_1,&adc1);
+  78:main.c        ****     xTaskCreate(vADC_READ2,"ADC2",400,(void*)(0xe),mainADC_TASK_2,&adc2);
+  79:main.c        ****     xTaskCreate(vADC_READ3,"ADC3",400,(void*)(_BV(MUX0)),mainADC_TASK_3,&adc3);
+  80:main.c        **** 
+  81:main.c        ****     vTaskStartScheduler();
+  82:main.c        **** 
+  83:main.c        ****     return 0;
+  84:main.c        **** }
+  85:main.c        **** void vApplicationIdleHook(void)
+  86:main.c        **** {
+  87:main.c        **** 
+  88:main.c        **** }
+  89:main.c        **** 
+  90:main.c        **** ISR(ADC_vect) {xSemaphoreGive(semADCComplete);}
+  91:main.c        **** 
+  92:main.c        **** // __attribute((always_inline)) 
+  93:main.c        **** static inline uint16_t readADC(uint8_t mux){
+ 269               	.LM10:
+ 270               	.LFBB3:
+ 271 0034 CF93      		push r28
+ 272 0036 DF93      		push r29
+ 273               	/* prologue: function */
+ 274               	/* frame size = 0 */
+ 275               	/* stack size = 2 */
+ 276               	.L__stack_usage = 2
+ 277 0038 C82F      		mov r28,r24
+  94:main.c        ****     xSemaphoreTake(semADC,portMAX_DELAY);
+ 279               	.LM11:
+ 280 003a 6FEF      		ldi r22,lo8(-1)
+ 281 003c 7FEF      		ldi r23,lo8(-1)
+ 282 003e 8091 0000 		lds r24,semADC
+ 283 0042 9091 0000 		lds r25,semADC+1
+ 284 0046 0E94 0000 		call xQueueSemaphoreTake
+  95:main.c        ****     uint16_t adc_state;
+  96:main.c        ****     ADMUX &= 0xf0;
+ 286               	.LM12:
+ 287 004a ECE7      		ldi r30,lo8(124)
+ 288 004c F0E0      		ldi r31,0
+ 289 004e 8081      		ld r24,Z
+ 290 0050 807F      		andi r24,lo8(-16)
+ 291 0052 8083      		st Z,r24
+  97:main.c        ****     ADMUX |= mux;
+ 293               	.LM13:
+ 294 0054 8081      		ld r24,Z
+ 295 0056 C82B      		or r28,r24
+ 296 0058 C083      		st Z,r28
+  98:main.c        ****     ADCSRA |= _BV(ADSC);
+ 298               	.LM14:
+ 299 005a EAE7      		ldi r30,lo8(122)
+ 300 005c F0E0      		ldi r31,0
+ 301 005e 8081      		ld r24,Z
+ 302 0060 8064      		ori r24,lo8(64)
+ 303 0062 8083      		st Z,r24
+  99:main.c        ****     // xSemaphoreTake(semADCComplete,portMAX_DELAY);
+ 100:main.c        ****     adc_state = ADC;
+ 305               	.LM15:
+ 306 0064 C091 7800 		lds r28,120
+ 307 0068 D091 7900 		lds r29,120+1
+ 101:main.c        ****     xSemaphoreGive(semADC);
+ 309               	.LM16:
+ 310 006c 20E0      		ldi r18,0
+ 311 006e 40E0      		ldi r20,0
+ 312 0070 50E0      		ldi r21,0
+ 313 0072 60E0      		ldi r22,0
+ 314 0074 70E0      		ldi r23,0
+ 315 0076 8091 0000 		lds r24,semADC
+ 316 007a 9091 0000 		lds r25,semADC+1
+ 317 007e 0E94 0000 		call xQueueGenericSend
+ 102:main.c        ****     return adc_state;   
+ 103:main.c        **** }
+ 319               	.LM17:
+ 320 0082 CE01      		movw r24,r28
+ 321               	/* epilogue start */
+ 322 0084 DF91      		pop r29
+ 323 0086 CF91      		pop r28
+ 324 0088 0895      		ret
+ 329               	.Lscope3:
+ 331               		.stabd	78,0,0
+ 332               		.section	.rodata.str1.1,"aMS",@progbits,1
+ 333               	.LC0:
+ 334 0000 4144 4333 		.string	"ADC3:\t%s\r\n"
+ 334      3A09 2573 
+ 334      0D0A 00
+ 335               		.text
+ 338               	vADC_READ3:
+ 339               		.stabd	46,0,0
+ 104:main.c        **** 
+ 105:main.c        **** static void vADC_READ1(void *pvParameters){
+ 106:main.c        ****     uint8_t input = (uint8_t)pvParameters;
+ 107:main.c        ****     uint16_t adc;
+ 108:main.c        ****     char buf[10];
+ 109:main.c        ****     while(1){
+ 110:main.c        ****         adc = readADC(input);
+ 111:main.c        ****         // xSemaphoreTake(printSEM,portMAX_DELAY);
+ 112:main.c        ****         itoa(adc,buf,10);
+ 113:main.c        ****         printf("ADC1:\t%s\r\n",buf);
+ 114:main.c        ****         fflush(stdout);
+ 115:main.c        ****         // xSemaphoreGive(printSEM);
+ 116:main.c        ****         vTaskDelay(500/portTICK_PERIOD_MS);
+ 117:main.c        ****     }
+ 118:main.c        **** }
+ 119:main.c        **** 
+ 120:main.c        **** 
+ 121:main.c        **** static void vADC_READ2(void *pvParameters){
+ 122:main.c        ****     uint8_t input = (uint8_t)pvParameters;
+ 123:main.c        ****     uint16_t adc;
+ 124:main.c        ****     char buf[10];
+ 125:main.c        ****     while(1){
+ 126:main.c        ****         adc = readADC(input);
+ 127:main.c        ****         // xSemaphoreTake(printSEM,portMAX_DELAY);
+ 128:main.c        ****         itoa(adc,buf,10);
+ 129:main.c        ****         printf("ADC2:\t%s\r\n",buf);
+ 130:main.c        ****         fflush(stdout);
+ 131:main.c        ****         // xSemaphoreGive(printSEM);
+ 132:main.c        ****         vTaskDelay(400/portTICK_PERIOD_MS);
+ 133:main.c        ****     }
+ 134:main.c        **** }
+ 135:main.c        **** 
+ 136:main.c        **** 
+ 137:main.c        **** static void vADC_READ3(void *pvParameters){
+ 341               	.LM18:
+ 342               	.LFBB4:
+ 343 008a CF93      		push r28
+ 344 008c DF93      		push r29
+ 345 008e CDB7      		in r28,__SP_L__
+ 346 0090 DEB7      		in r29,__SP_H__
+ 347 0092 2A97      		sbiw r28,10
+ 348 0094 0FB6      		in __tmp_reg__,__SREG__
+ 349 0096 F894      		cli
+ 350 0098 DEBF      		out __SP_H__,r29
+ 351 009a 0FBE      		out __SREG__,__tmp_reg__
+ 352 009c CDBF      		out __SP_L__,r28
+ 353               	/* prologue: function */
+ 354               	/* frame size = 10 */
+ 355               	/* stack size = 12 */
+ 356               	.L__stack_usage = 12
+ 357 009e D82E      		mov r13,r24
+ 358               	.LBB11:
+ 138:main.c        ****     uint8_t input = (uint8_t)pvParameters;
+ 139:main.c        ****     uint16_t adc;
+ 140:main.c        ****     char buf[10];
+ 141:main.c        ****     while(1){
+ 142:main.c        ****         adc = readADC(input);
+ 143:main.c        ****         // xSemaphoreTake(printSEM,portMAX_DELAY);
+ 144:main.c        ****         itoa(adc,buf,10);
+ 360               	.LM19:
+ 361 00a0 CE01      		movw r24,r28
+ 362 00a2 0196      		adiw r24,1
+ 363 00a4 7C01      		movw r14,r24
+ 145:main.c        ****         printf("ADC3:\t%s\r\n",buf);
+ 365               	.LM20:
+ 366 00a6 00E0      		ldi r16,lo8(.LC0)
+ 367 00a8 10E0      		ldi r17,hi8(.LC0)
+ 368               	.L12:
+ 142:main.c        ****         // xSemaphoreTake(printSEM,portMAX_DELAY);
+ 370               	.LM21:
+ 371 00aa 8D2D      		mov r24,r13
+ 372 00ac 0E94 0000 		call readADC
+ 144:main.c        ****         printf("ADC3:\t%s\r\n",buf);
+ 374               	.LM22:
+ 375 00b0 4AE0      		ldi r20,lo8(10)
+ 376 00b2 50E0      		ldi r21,0
+ 377 00b4 B701      		movw r22,r14
+ 378 00b6 0E94 0000 		call itoa
+ 380               	.LM23:
+ 381 00ba FF92      		push r15
+ 382 00bc EF92      		push r14
+ 383 00be 1F93      		push r17
+ 384 00c0 0F93      		push r16
+ 385 00c2 0E94 0000 		call printf
+ 146:main.c        ****         fflush(stdout);
+ 147:main.c        ****         // xSemaphoreGive(printSEM);
+ 148:main.c        ****         vTaskDelay(2000/portTICK_PERIOD_MS);
+ 387               	.LM24:
+ 388 00c6 80ED      		ldi r24,lo8(-48)
+ 389 00c8 97E0      		ldi r25,lo8(7)
+ 390 00ca 0E94 0000 		call vTaskDelay
+ 391 00ce 0F90      		pop __tmp_reg__
+ 392 00d0 0F90      		pop __tmp_reg__
+ 393 00d2 0F90      		pop __tmp_reg__
+ 394 00d4 0F90      		pop __tmp_reg__
+ 395 00d6 00C0      		rjmp .L12
+ 396               	.LBE11:
+ 402               	.Lscope4:
+ 404               		.stabd	78,0,0
+ 405               		.section	.rodata.str1.1
+ 406               	.LC1:
+ 407 000b 4144 4332 		.string	"ADC2:\t%s\r\n"
+ 407      3A09 2573 
+ 407      0D0A 00
+ 408               		.text
+ 411               	vADC_READ2:
+ 412               		.stabd	46,0,0
+ 121:main.c        ****     uint8_t input = (uint8_t)pvParameters;
+ 414               	.LM25:
+ 415               	.LFBB5:
+ 416 00d8 CF93      		push r28
+ 417 00da DF93      		push r29
+ 418 00dc CDB7      		in r28,__SP_L__
+ 419 00de DEB7      		in r29,__SP_H__
+ 420 00e0 2A97      		sbiw r28,10
+ 421 00e2 0FB6      		in __tmp_reg__,__SREG__
+ 422 00e4 F894      		cli
+ 423 00e6 DEBF      		out __SP_H__,r29
+ 424 00e8 0FBE      		out __SREG__,__tmp_reg__
+ 425 00ea CDBF      		out __SP_L__,r28
+ 426               	/* prologue: function */
+ 427               	/* frame size = 10 */
+ 428               	/* stack size = 12 */
+ 429               	.L__stack_usage = 12
+ 430 00ec D82E      		mov r13,r24
+ 431               	.LBB12:
+ 128:main.c        ****         printf("ADC2:\t%s\r\n",buf);
+ 433               	.LM26:
+ 434 00ee CE01      		movw r24,r28
+ 435 00f0 0196      		adiw r24,1
+ 436 00f2 7C01      		movw r14,r24
+ 129:main.c        ****         fflush(stdout);
+ 438               	.LM27:
+ 439 00f4 00E0      		ldi r16,lo8(.LC1)
+ 440 00f6 10E0      		ldi r17,hi8(.LC1)
+ 441               	.L14:
+ 126:main.c        ****         // xSemaphoreTake(printSEM,portMAX_DELAY);
+ 443               	.LM28:
+ 444 00f8 8D2D      		mov r24,r13
+ 445 00fa 0E94 0000 		call readADC
+ 128:main.c        ****         printf("ADC2:\t%s\r\n",buf);
+ 447               	.LM29:
+ 448 00fe 4AE0      		ldi r20,lo8(10)
+ 449 0100 50E0      		ldi r21,0
+ 450 0102 B701      		movw r22,r14
+ 451 0104 0E94 0000 		call itoa
+ 129:main.c        ****         fflush(stdout);
+ 453               	.LM30:
+ 454 0108 FF92      		push r15
+ 455 010a EF92      		push r14
+ 456 010c 1F93      		push r17
+ 457 010e 0F93      		push r16
+ 458 0110 0E94 0000 		call printf
+ 132:main.c        ****     }
+ 460               	.LM31:
+ 461 0114 80E9      		ldi r24,lo8(-112)
+ 462 0116 91E0      		ldi r25,lo8(1)
+ 463 0118 0E94 0000 		call vTaskDelay
+ 464 011c 0F90      		pop __tmp_reg__
+ 465 011e 0F90      		pop __tmp_reg__
+ 466 0120 0F90      		pop __tmp_reg__
+ 467 0122 0F90      		pop __tmp_reg__
+ 468 0124 00C0      		rjmp .L14
+ 469               	.LBE12:
+ 475               	.Lscope5:
+ 477               		.stabd	78,0,0
+ 478               		.section	.rodata.str1.1
+ 479               	.LC2:
+ 480 0016 4144 4331 		.string	"ADC1:\t%s\r\n"
+ 480      3A09 2573 
+ 480      0D0A 00
+ 481               		.text
+ 484               	vADC_READ1:
+ 485               		.stabd	46,0,0
+ 105:main.c        ****     uint8_t input = (uint8_t)pvParameters;
+ 487               	.LM32:
+ 488               	.LFBB6:
+ 489 0126 CF93      		push r28
+ 490 0128 DF93      		push r29
+ 491 012a CDB7      		in r28,__SP_L__
+ 492 012c DEB7      		in r29,__SP_H__
+ 493 012e 2A97      		sbiw r28,10
+ 494 0130 0FB6      		in __tmp_reg__,__SREG__
+ 495 0132 F894      		cli
+ 496 0134 DEBF      		out __SP_H__,r29
+ 497 0136 0FBE      		out __SREG__,__tmp_reg__
+ 498 0138 CDBF      		out __SP_L__,r28
+ 499               	/* prologue: function */
+ 500               	/* frame size = 10 */
+ 501               	/* stack size = 12 */
+ 502               	.L__stack_usage = 12
+ 503 013a D82E      		mov r13,r24
+ 504               	.LBB13:
+ 112:main.c        ****         printf("ADC1:\t%s\r\n",buf);
+ 506               	.LM33:
+ 507 013c CE01      		movw r24,r28
+ 508 013e 0196      		adiw r24,1
+ 509 0140 7C01      		movw r14,r24
+ 113:main.c        ****         fflush(stdout);
+ 511               	.LM34:
+ 512 0142 00E0      		ldi r16,lo8(.LC2)
+ 513 0144 10E0      		ldi r17,hi8(.LC2)
+ 514               	.L16:
+ 110:main.c        ****         // xSemaphoreTake(printSEM,portMAX_DELAY);
+ 516               	.LM35:
+ 517 0146 8D2D      		mov r24,r13
+ 518 0148 0E94 0000 		call readADC
+ 112:main.c        ****         printf("ADC1:\t%s\r\n",buf);
+ 520               	.LM36:
+ 521 014c 4AE0      		ldi r20,lo8(10)
+ 522 014e 50E0      		ldi r21,0
+ 523 0150 B701      		movw r22,r14
+ 524 0152 0E94 0000 		call itoa
+ 113:main.c        ****         fflush(stdout);
+ 526               	.LM37:
+ 527 0156 FF92      		push r15
+ 528 0158 EF92      		push r14
+ 529 015a 1F93      		push r17
+ 530 015c 0F93      		push r16
+ 531 015e 0E94 0000 		call printf
+ 116:main.c        ****     }
+ 533               	.LM38:
+ 534 0162 84EF      		ldi r24,lo8(-12)
+ 535 0164 91E0      		ldi r25,lo8(1)
+ 536 0166 0E94 0000 		call vTaskDelay
+ 537 016a 0F90      		pop __tmp_reg__
+ 538 016c 0F90      		pop __tmp_reg__
+ 539 016e 0F90      		pop __tmp_reg__
+ 540 0170 0F90      		pop __tmp_reg__
+ 541 0172 00C0      		rjmp .L16
+ 542               	.LBE13:
+ 548               	.Lscope6:
+ 550               		.stabd	78,0,0
+ 552               	.global	uart_init
+ 554               	uart_init:
+ 555               		.stabd	46,0,0
+  29:main.c        ****   UBRR0H = UBRRH_VALUE;
+ 557               	.LM39:
+ 558               	.LFBB7:
+ 559               	/* prologue: function */
+ 560               	/* frame size = 0 */
+ 561               	/* stack size = 0 */
+ 562               	.L__stack_usage = 0
+  30:main.c        ****   UBRR0L = UBRRL_VALUE;
+ 564               	.LM40:
+ 565 0174 1092 C500 		sts 197,__zero_reg__
+  31:main.c        **** #if USE_2X
+ 567               	.LM41:
+ 568 0178 87E6      		ldi r24,lo8(103)
+ 569 017a 8093 C400 		sts 196,r24
+  35:main.c        **** #endif
+ 571               	.LM42:
+ 572 017e E0EC      		ldi r30,lo8(-64)
+ 573 0180 F0E0      		ldi r31,0
+ 574 0182 8081      		ld r24,Z
+ 575 0184 8D7F      		andi r24,lo8(-3)
+ 576 0186 8083      		st Z,r24
+  37:main.c        ****   UCSR0B = _BV(RXEN0) | _BV(TXEN0); /* Enable RX and TX */
+ 578               	.LM43:
+ 579 0188 86E0      		ldi r24,lo8(6)
+ 580 018a 8093 C200 		sts 194,r24
+  38:main.c        **** }
+ 582               	.LM44:
+ 583 018e 88E1      		ldi r24,lo8(24)
+ 584 0190 8093 C100 		sts 193,r24
+ 585 0194 0895      		ret
+ 587               	.Lscope7:
+ 589               		.stabd	78,0,0
+ 591               	.global	adc_init
+ 593               	adc_init:
+ 594               		.stabd	46,0,0
+  54:main.c        ****     ADMUX = _BV(REFS0); // referencja AVcc
+ 596               	.LM45:
+ 597               	.LFBB8:
+ 598               	/* prologue: function */
+ 599               	/* frame size = 0 */
+ 600               	/* stack size = 0 */
+ 601               	.L__stack_usage = 0
+  55:main.c        ****     DIDR0 = _BV(ADC0D) | _BV(ADC1D) | _BV(ADC2D); // wyłącz wejście cyfrowe na ADC0, ADC1, ADC2
+ 603               	.LM46:
+ 604 0196 80E4      		ldi r24,lo8(64)
+ 605 0198 8093 7C00 		sts 124,r24
+  56:main.c        ****     ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADPS2); // preskaler 128
+ 607               	.LM47:
+ 608 019c 87E0      		ldi r24,lo8(7)
+ 609 019e 8093 7E00 		sts 126,r24
+  57:main.c        ****     ADCSRA |= _BV(ADEN); // włącz ADC
+ 611               	.LM48:
+ 612 01a2 EAE7      		ldi r30,lo8(122)
+ 613 01a4 F0E0      		ldi r31,0
+ 614 01a6 8083      		st Z,r24
+  58:main.c        ****     ADCSRA |= _BV(ADIE); // włącz interupty nad ADC
+ 616               	.LM49:
+ 617 01a8 8081      		ld r24,Z
+ 618 01aa 8068      		ori r24,lo8(-128)
+ 619 01ac 8083      		st Z,r24
+  59:main.c        **** }
+ 621               	.LM50:
+ 622 01ae 8081      		ld r24,Z
+ 623 01b0 8860      		ori r24,lo8(8)
+ 624 01b2 8083      		st Z,r24
+ 625 01b4 0895      		ret
+ 627               	.Lscope8:
+ 629               		.stabd	78,0,0
+ 630               		.section	.rodata.str1.1
+ 631               	.LC3:
+ 632 0021 4144 4331 		.string	"ADC1"
+ 632      00
+ 633               	.LC4:
+ 634 0026 4144 4332 		.string	"ADC2"
+ 634      00
+ 635               	.LC5:
+ 636 002b 4144 4333 		.string	"ADC3"
+ 636      00
+ 637               		.section	.text.startup,"ax",@progbits
+ 639               	.global	main
+ 641               	main:
+ 642               		.stabd	46,0,0
+  63:main.c        ****     xTaskHandle adc1,adc2,adc3;
+ 644               	.LM51:
+ 645               	.LFBB9:
+ 646 0000 EF92      		push r14
+ 647 0002 FF92      		push r15
+ 648 0004 0F93      		push r16
+ 649 0006 CF93      		push r28
+ 650 0008 DF93      		push r29
+ 651 000a 00D0      		rcall .
+ 652 000c 00D0      		rcall .
+ 653 000e 00D0      		rcall .
+ 654 0010 CDB7      		in r28,__SP_L__
+ 655 0012 DEB7      		in r29,__SP_H__
+ 656               	/* prologue: function */
+ 657               	/* frame size = 6 */
+ 658               	/* stack size = 11 */
+ 659               	.L__stack_usage = 11
+  65:main.c        ****     stdin = stdout = stderr = &uart_file;
+ 661               	.LM52:
+ 662 0014 0E94 0000 		call uart_init
+  66:main.c        ****     adc_init();
+ 664               	.LM53:
+ 665 0018 E0E0      		ldi r30,lo8(__iob)
+ 666 001a F0E0      		ldi r31,hi8(__iob)
+ 667 001c 80E0      		ldi r24,lo8(uart_file)
+ 668 001e 90E0      		ldi r25,hi8(uart_file)
+ 669 0020 9583      		std Z+5,r25
+ 670 0022 8483      		std Z+4,r24
+ 671 0024 9383      		std Z+3,r25
+ 672 0026 8283      		std Z+2,r24
+ 673 0028 9183      		std Z+1,r25
+ 674 002a 8083      		st Z,r24
+  67:main.c        **** 
+ 676               	.LM54:
+ 677 002c 0E94 0000 		call adc_init
+  69:main.c        ****     semADC = xSemaphoreCreateBinary();
+ 679               	.LM55:
+ 680               	/* #APP */
+ 681               	 ;  69 "main.c" 1
+ 682 0030 7894      		sei
+ 683               	 ;  0 "" 2
+  70:main.c        ****     // semADCComplete = xSemaphoreCreateBinary();
+ 685               	.LM56:
+ 686               	/* #NOAPP */
+ 687 0032 43E0      		ldi r20,lo8(3)
+ 688 0034 60E0      		ldi r22,0
+ 689 0036 81E0      		ldi r24,lo8(1)
+ 690 0038 0E94 0000 		call xQueueGenericCreate
+ 691 003c 9093 0000 		sts semADC+1,r25
+ 692 0040 8093 0000 		sts semADC,r24
+  74:main.c        ****     // xSemaphoreGive(printSEM);
+ 694               	.LM57:
+ 695 0044 20E0      		ldi r18,0
+ 696 0046 40E0      		ldi r20,0
+ 697 0048 50E0      		ldi r21,0
+ 698 004a 60E0      		ldi r22,0
+ 699 004c 70E0      		ldi r23,0
+ 700 004e 0E94 0000 		call xQueueGenericSend
+  77:main.c        ****     xTaskCreate(vADC_READ2,"ADC2",400,(void*)(0xe),mainADC_TASK_2,&adc2);
+ 702               	.LM58:
+ 703 0052 CE01      		movw r24,r28
+ 704 0054 0596      		adiw r24,5
+ 705 0056 7C01      		movw r14,r24
+ 706 0058 01E0      		ldi r16,lo8(1)
+ 707 005a 20E0      		ldi r18,0
+ 708 005c 30E0      		ldi r19,0
+ 709 005e 40E9      		ldi r20,lo8(-112)
+ 710 0060 51E0      		ldi r21,lo8(1)
+ 711 0062 60E0      		ldi r22,lo8(.LC3)
+ 712 0064 70E0      		ldi r23,hi8(.LC3)
+ 713 0066 80E0      		ldi r24,lo8(gs(vADC_READ1))
+ 714 0068 90E0      		ldi r25,hi8(gs(vADC_READ1))
+ 715 006a 0E94 0000 		call xTaskCreate
+  78:main.c        ****     xTaskCreate(vADC_READ3,"ADC3",400,(void*)(_BV(MUX0)),mainADC_TASK_3,&adc3);
+ 717               	.LM59:
+ 718 006e CE01      		movw r24,r28
+ 719 0070 0396      		adiw r24,3
+ 720 0072 7C01      		movw r14,r24
+ 721 0074 2EE0      		ldi r18,lo8(14)
+ 722 0076 30E0      		ldi r19,0
+ 723 0078 40E9      		ldi r20,lo8(-112)
+ 724 007a 51E0      		ldi r21,lo8(1)
+ 725 007c 60E0      		ldi r22,lo8(.LC4)
+ 726 007e 70E0      		ldi r23,hi8(.LC4)
+ 727 0080 80E0      		ldi r24,lo8(gs(vADC_READ2))
+ 728 0082 90E0      		ldi r25,hi8(gs(vADC_READ2))
+ 729 0084 0E94 0000 		call xTaskCreate
+  79:main.c        **** 
+ 731               	.LM60:
+ 732 0088 CE01      		movw r24,r28
+ 733 008a 0196      		adiw r24,1
+ 734 008c 7C01      		movw r14,r24
+ 735 008e 21E0      		ldi r18,lo8(1)
+ 736 0090 30E0      		ldi r19,0
+ 737 0092 40E9      		ldi r20,lo8(-112)
+ 738 0094 51E0      		ldi r21,lo8(1)
+ 739 0096 60E0      		ldi r22,lo8(.LC5)
+ 740 0098 70E0      		ldi r23,hi8(.LC5)
+ 741 009a 80E0      		ldi r24,lo8(gs(vADC_READ3))
+ 742 009c 90E0      		ldi r25,hi8(gs(vADC_READ3))
+ 743 009e 0E94 0000 		call xTaskCreate
+  81:main.c        **** 
+ 745               	.LM61:
+ 746 00a2 0E94 0000 		call vTaskStartScheduler
+  84:main.c        **** void vApplicationIdleHook(void)
+ 748               	.LM62:
+ 749 00a6 80E0      		ldi r24,0
+ 750 00a8 90E0      		ldi r25,0
+ 751               	/* epilogue start */
+ 752 00aa 2696      		adiw r28,6
+ 753 00ac 0FB6      		in __tmp_reg__,__SREG__
+ 754 00ae F894      		cli
+ 755 00b0 DEBF      		out __SP_H__,r29
+ 756 00b2 0FBE      		out __SREG__,__tmp_reg__
+ 757 00b4 CDBF      		out __SP_L__,r28
+ 758 00b6 DF91      		pop r29
+ 759 00b8 CF91      		pop r28
+ 760 00ba 0F91      		pop r16
+ 761 00bc FF90      		pop r15
+ 762 00be EF90      		pop r14
+ 763 00c0 0895      		ret
+ 770               	.Lscope9:
+ 772               		.stabd	78,0,0
+ 773               		.text
+ 775               	.global	vApplicationIdleHook
+ 777               	vApplicationIdleHook:
+ 778               		.stabd	46,0,0
+  86:main.c        **** 
+ 780               	.LM63:
+ 781               	.LFBB10:
+ 782               	/* prologue: function */
+ 783               	/* frame size = 0 */
+ 784               	/* stack size = 0 */
+ 785               	.L__stack_usage = 0
+ 786 01b6 0895      		ret
+ 788               	.Lscope10:
+ 790               		.stabd	78,0,0
+ 792               	.global	__vector_21
+ 794               	__vector_21:
+ 795               		.stabd	46,0,0
+  90:main.c        **** 
+ 797               	.LM64:
+ 798               	.LFBB11:
+  90:main.c        **** 
+ 800               	.LM65:
+ 801 01b8 1F92      		push r1
+ 802 01ba 0F92      		push r0
+ 803 01bc 0FB6      		in r0,__SREG__
+ 804 01be 0F92      		push r0
+ 805 01c0 1124      		clr __zero_reg__
+ 806 01c2 2F93      		push r18
+ 807 01c4 3F93      		push r19
+ 808 01c6 4F93      		push r20
+ 809 01c8 5F93      		push r21
+ 810 01ca 6F93      		push r22
+ 811 01cc 7F93      		push r23
+ 812 01ce 8F93      		push r24
+ 813 01d0 9F93      		push r25
+ 814 01d2 AF93      		push r26
+ 815 01d4 BF93      		push r27
+ 816 01d6 EF93      		push r30
+ 817 01d8 FF93      		push r31
+ 818               	/* prologue: Signal */
+ 819               	/* frame size = 0 */
+ 820               	/* stack size = 15 */
+ 821               	.L__stack_usage = 15
+  90:main.c        **** 
+ 823               	.LM66:
+ 824 01da 20E0      		ldi r18,0
+ 825 01dc 40E0      		ldi r20,0
+ 826 01de 50E0      		ldi r21,0
+ 827 01e0 60E0      		ldi r22,0
+ 828 01e2 70E0      		ldi r23,0
+ 829 01e4 8091 0000 		lds r24,semADCComplete
+ 830 01e8 9091 0000 		lds r25,semADCComplete+1
+ 831 01ec 0E94 0000 		call xQueueGenericSend
+ 832               	/* epilogue start */
+ 833 01f0 FF91      		pop r31
+ 834 01f2 EF91      		pop r30
+ 835 01f4 BF91      		pop r27
+ 836 01f6 AF91      		pop r26
+ 837 01f8 9F91      		pop r25
+ 838 01fa 8F91      		pop r24
+ 839 01fc 7F91      		pop r23
+ 840 01fe 6F91      		pop r22
+ 841 0200 5F91      		pop r21
+ 842 0202 4F91      		pop r20
+ 843 0204 3F91      		pop r19
+ 844 0206 2F91      		pop r18
+ 845 0208 0F90      		pop r0
+ 846 020a 0FBE      		out __SREG__,r0
+ 847 020c 0F90      		pop r0
+ 848 020e 1F90      		pop r1
+ 849 0210 1895      		reti
+ 851               	.Lscope11:
+ 853               		.stabd	78,0,0
+ 854               		.comm	printSEM,2,1
+ 855               		.comm	semADCComplete,2,1
+ 856               		.comm	semADC,2,1
+ 857               	.global	uart_file
+ 858               		.data
+ 861               	uart_file:
+ 862 0000 0000 00   		.zero	3
+ 863 0003 03        		.byte	3
+ 864 0004 0000 0000 		.zero	4
+ 865 0008 0000      		.word	gs(uart_transmit)
+ 866 000a 0000      		.word	gs(uart_receive)
+ 867 000c 0000      		.word	0
+ 872               		.text
+ 874               	.Letext0:
+ 875               		.ident	"GCC: (GNU) 5.4.0"
+ 876               	.global __do_copy_data
+ 877               	.global __do_clear_bss
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 main.c
+     /tmp/ccDdKXEu.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccDdKXEu.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccDdKXEu.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccDdKXEu.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccDdKXEu.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccDdKXEu.s:192    .text:0000000000000000 uart_transmit
+     /tmp/ccDdKXEu.s:232    .text:000000000000001e uart_receive
+     /tmp/ccDdKXEu.s:266    .text:0000000000000034 readADC
+                            *COM*:0000000000000002 semADC
+     /tmp/ccDdKXEu.s:338    .text:000000000000008a vADC_READ3
+     /tmp/ccDdKXEu.s:411    .text:00000000000000d8 vADC_READ2
+     /tmp/ccDdKXEu.s:484    .text:0000000000000126 vADC_READ1
+     /tmp/ccDdKXEu.s:554    .text:0000000000000174 uart_init
+     /tmp/ccDdKXEu.s:593    .text:0000000000000196 adc_init
+     /tmp/ccDdKXEu.s:641    .text.startup:0000000000000000 main
+     /tmp/ccDdKXEu.s:861    .data:0000000000000000 uart_file
+     /tmp/ccDdKXEu.s:777    .text:00000000000001b6 vApplicationIdleHook
+     /tmp/ccDdKXEu.s:794    .text:00000000000001b8 __vector_21
+                            *COM*:0000000000000002 semADCComplete
+                            *COM*:0000000000000002 printSEM
+
+UNDEFINED SYMBOLS
+vPortYield
+xQueueSemaphoreTake
+xQueueGenericSend
+itoa
+printf
+vTaskDelay
+__iob
+xQueueGenericCreate
+xTaskCreate
+vTaskStartScheduler
+__do_copy_data
+__do_clear_bss

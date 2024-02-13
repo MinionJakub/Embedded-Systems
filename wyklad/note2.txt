@@ -1,0 +1,18 @@
+Architektura Harwardzka
+Kod -> Flash
+Dane -> SRAM
+
+Architektura Zmodyfikowana Harwardzka
+kod -> Cache1.kod
+Dane -> Cache1.dane
+Cache1.kod -> Wspólna pamięć
+Cache2.dane -> Wspólna pamięć
+
+Architektura Von Neumannowska
+Kod -> Ram
+Dane -> Ram
+
+
+ddr = 0 
+port = 1 
+wtedy  rezystor pull up jest załączony

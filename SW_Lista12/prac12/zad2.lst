@@ -1,0 +1,912 @@
+   1               		.file	"zad2.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   9               		.text
+  10               	.Ltext0:
+ 182               	.global	grzejnik_init
+ 184               	grzejnik_init:
+ 185               		.stabd	46,0,0
+   1:zad2.c        **** #include "FreeRTOS.h"
+   2:zad2.c        **** #include "FreeRTOSConfig.h"
+   3:zad2.c        **** #include "IAR/pid.h"
+   4:zad2.c        **** #include "task.h"
+   5:zad2.c        **** #include "uart.h"
+   6:zad2.c        **** #include <avr/interrupt.h>
+   7:zad2.c        **** #include <avr/io.h>
+   8:zad2.c        **** #include <stdio.h>
+   9:zad2.c        **** #include <string.h>
+  10:zad2.c        **** #include <util/delay.h>
+  11:zad2.c        **** 
+  12:zad2.c        **** #define GRZEJNIK PB5
+  13:zad2.c        **** #define GRZEJNIK_DDR DDRB
+  14:zad2.c        **** #define GRZEJNIK_PORT PORTB
+  15:zad2.c        **** #define BUFF 20
+  16:zad2.c        **** #define STDIN_FILENO 0
+  17:zad2.c        **** #define TEMP_EPS 0.3
+  18:zad2.c        **** #define V_SUB 0.4
+  19:zad2.c        **** #define MCP9700_SCALE 0.0195
+  20:zad2.c        **** 
+  21:zad2.c        **** #define mainTRACE_TASK_PRIORITY 2
+  22:zad2.c        **** #define mainSHIFTING_TASK_PRIORITY 2
+  23:zad2.c        **** 
+  24:zad2.c        **** FILE uart_file = FDEV_SETUP_STREAM(uart_transmit, uart_receive, _FDEV_SETUP_RW);
+  25:zad2.c        **** 
+  26:zad2.c        **** void grzejnik_init(void) { GRZEJNIK_DDR = _BV(GRZEJNIK); }
+ 187               	.LM0:
+ 188               	.LFBB1:
+ 189               	/* prologue: function */
+ 190               	/* frame size = 0 */
+ 191               	/* stack size = 0 */
+ 192               	.L__stack_usage = 0
+ 194               	.LM1:
+ 195 0000 80E2      		ldi r24,lo8(32)
+ 196 0002 84B9      		out 0x4,r24
+ 197 0004 0895      		ret
+ 199               	.Lscope1:
+ 201               		.stabd	78,0,0
+ 203               	.global	timer_init
+ 205               	timer_init:
+ 206               		.stabd	46,0,0
+  27:zad2.c        **** 
+  28:zad2.c        **** void timer_init() {
+ 208               	.LM2:
+ 209               	.LFBB2:
+ 210               	/* prologue: function */
+ 211               	/* frame size = 0 */
+ 212               	/* stack size = 0 */
+ 213               	.L__stack_usage = 0
+  29:zad2.c        ****   // ctc mode tak zeby przerwanie było co 1/100 s
+  30:zad2.c        ****   TCCR0A = _BV(WGM01);            // CTC
+ 215               	.LM3:
+ 216 0006 82E0      		ldi r24,lo8(2)
+ 217 0008 84BD      		out 0x24,r24
+  31:zad2.c        ****   TCCR0B = _BV(CS00) | _BV(CS02); // clk_io /1024
+ 219               	.LM4:
+ 220 000a 85E0      		ldi r24,lo8(5)
+ 221 000c 85BD      		out 0x25,r24
+  32:zad2.c        ****   OCR0A = 30;                     // 100Hz
+ 223               	.LM5:
+ 224 000e 8EE1      		ldi r24,lo8(30)
+ 225 0010 87BD      		out 0x27,r24
+  33:zad2.c        ****   TIMSK0 |= _BV(OCIE0A);
+ 227               	.LM6:
+ 228 0012 EEE6      		ldi r30,lo8(110)
+ 229 0014 F0E0      		ldi r31,0
+ 230 0016 8081      		ld r24,Z
+ 231 0018 8260      		ori r24,lo8(2)
+ 232 001a 8083      		st Z,r24
+ 233 001c 0895      		ret
+ 235               	.Lscope2:
+ 237               		.stabd	78,0,0
+ 239               	.global	timer2_init
+ 241               	timer2_init:
+ 242               		.stabd	46,0,0
+  34:zad2.c        **** }
+  35:zad2.c        **** 
+  36:zad2.c        **** void timer2_init() {
+ 244               	.LM7:
+ 245               	.LFBB3:
+ 246               	/* prologue: function */
+ 247               	/* frame size = 0 */
+ 248               	/* stack size = 0 */
+ 249               	.L__stack_usage = 0
+  37:zad2.c        ****   TCCR2A = _BV(WGM21) | _BV(COM2A0); // CTC
+ 251               	.LM8:
+ 252 001e 82E4      		ldi r24,lo8(66)
+ 253 0020 8093 B000 		sts 176,r24
+  38:zad2.c        ****   TCCR2B = _BV(CS20);                // no prescaler
+ 255               	.LM9:
+ 256 0024 81E0      		ldi r24,lo8(1)
+ 257 0026 8093 B100 		sts 177,r24
+  39:zad2.c        ****   OCR2A = 30;
+ 259               	.LM10:
+ 260 002a 8EE1      		ldi r24,lo8(30)
+ 261 002c 8093 B300 		sts 179,r24
+  40:zad2.c        ****   DDRB |= _BV(PB3); // OC2A output
+ 263               	.LM11:
+ 264 0030 239A      		sbi 0x4,3
+ 265 0032 0895      		ret
+ 267               	.Lscope3:
+ 269               		.stabd	78,0,0
+ 271               	.global	adc_init
+ 273               	adc_init:
+ 274               		.stabd	46,0,0
+  41:zad2.c        **** }
+  42:zad2.c        **** 
+  43:zad2.c        **** void adc_init() {
+ 276               	.LM12:
+ 277               	.LFBB4:
+ 278               	/* prologue: function */
+ 279               	/* frame size = 0 */
+ 280               	/* stack size = 0 */
+ 281               	.L__stack_usage = 0
+  44:zad2.c        ****   ADMUX = _BV(REFS0) | _BV(REFS1); // referencja 1.1V, wejście ADC0
+ 283               	.LM13:
+ 284 0034 80EC      		ldi r24,lo8(-64)
+ 285 0036 8093 7C00 		sts 124,r24
+  45:zad2.c        ****   DIDR0 = _BV(ADC0D);              // wyłącz wejście cyfrowe na ADC0
+ 287               	.LM14:
+ 288 003a 81E0      		ldi r24,lo8(1)
+ 289 003c 8093 7E00 		sts 126,r24
+  46:zad2.c        ****   // częstotliwość zegara ADC 125 kHz (16 MHz / 128)
+  47:zad2.c        ****   ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADPS2); // preskaler 128
+ 291               	.LM15:
+ 292 0040 EAE7      		ldi r30,lo8(122)
+ 293 0042 F0E0      		ldi r31,0
+ 294 0044 87E0      		ldi r24,lo8(7)
+ 295 0046 8083      		st Z,r24
+  48:zad2.c        ****   ADCSRA |= _BV(ADEN) | _BV(ADIE);               // włącz ADC i interrupt
+ 297               	.LM16:
+ 298 0048 8081      		ld r24,Z
+ 299 004a 8868      		ori r24,lo8(-120)
+ 300 004c 8083      		st Z,r24
+ 301 004e 0895      		ret
+ 303               	.Lscope4:
+ 305               		.stabd	78,0,0
+ 306               		.section	.rodata.str1.1,"aMS",@progbits,1
+ 307               	.LC0:
+ 308 0000 5069 6420 		.string	"Pid controller value: %d, OCR2A %d\r\n"
+ 308      636F 6E74 
+ 308      726F 6C6C 
+ 308      6572 2076 
+ 308      616C 7565 
+ 309               		.text
+ 313               	pidControllerTask:
+ 314               		.stabd	46,0,0
+  49:zad2.c        ****   // ADCSRB = _BV(ADTS0) | _BV(ADTS1);
+  50:zad2.c        **** }
+  51:zad2.c        **** 
+  52:zad2.c        **** ISR(TIMER0_COMPA_vect) { ADCSRA |= _BV(ADSC); }
+  53:zad2.c        **** 
+  54:zad2.c        **** volatile uint16_t settemp = 20;
+  55:zad2.c        **** volatile uint16_t adc;
+  56:zad2.c        **** volatile uint8_t adc_bool = 0;
+  57:zad2.c        **** ISR(ADC_vect) {
+  58:zad2.c        ****   adc = ADC;
+  59:zad2.c        ****   // temp = (adc + (adc / 10)) / 1024;
+  60:zad2.c        ****   // temp = (temp - V_SUB) / MCP9700_SCALE;
+  61:zad2.c        ****   // temp = (int16_t)(((adc + (adc / 10)) / 20) - 21);
+  62:zad2.c        ****   adc_bool = 1;
+  63:zad2.c        **** }
+  64:zad2.c        **** 
+  65:zad2.c        **** uint8_t readline(char *line) {
+  66:zad2.c        ****   uint8_t c = 0;
+  67:zad2.c        ****   while (c < BUFF) {
+  68:zad2.c        ****     line[c] = getchar();
+  69:zad2.c        ****     if (line[c++] == 0x0d)
+  70:zad2.c        ****       break;
+  71:zad2.c        ****   }
+  72:zad2.c        ****   line[c] = '\0';
+  73:zad2.c        ****   return c;
+  74:zad2.c        **** }
+  75:zad2.c        **** 
+  76:zad2.c        **** #define stack_size ((unsigned short)300)
+  77:zad2.c        **** 
+  78:zad2.c        **** static void pidControllerTask(void *pvParameters);
+  79:zad2.c        **** static void uartControllerTask(void *pvParameters);
+  80:zad2.c        **** 
+  81:zad2.c        **** int main(void) {
+  82:zad2.c        ****   uart_init();
+  83:zad2.c        ****   stdin = stdout = stderr = &uart_file;
+  84:zad2.c        **** 
+  85:zad2.c        ****   xTaskHandle trace_handle;
+  86:zad2.c        ****   xTaskHandle shifting_handle;
+  87:zad2.c        **** 
+  88:zad2.c        ****   xTaskCreate(pidControllerTask, "trace", stack_size, NULL,
+  89:zad2.c        ****               mainTRACE_TASK_PRIORITY, &trace_handle);
+  90:zad2.c        **** 
+  91:zad2.c        ****   xTaskCreate(uartControllerTask, "shift", stack_size, NULL,
+  92:zad2.c        ****               mainSHIFTING_TASK_PRIORITY, &shifting_handle);
+  93:zad2.c        **** 
+  94:zad2.c        ****   vTaskStartScheduler();
+  95:zad2.c        **** 
+  96:zad2.c        ****   return 0;
+  97:zad2.c        **** }
+  98:zad2.c        **** 
+  99:zad2.c        **** int16_t sum_pid(struct PID_DATA *pid_data) {
+ 100:zad2.c        ****   return pid_data->P_Factor + pid_data->D_Factor + pid_data->I_Factor;
+ 101:zad2.c        **** }
+ 102:zad2.c        **** 
+ 103:zad2.c        **** void vApplicationIdleHook(void) {}
+ 104:zad2.c        **** #define RISING 1
+ 105:zad2.c        **** #define FALLING 0
+ 106:zad2.c        **** static void pidControllerTask(void *pvParameters) {
+ 316               	.LM17:
+ 317               	.LFBB5:
+ 318 0050 CF93      		push r28
+ 319 0052 DF93      		push r29
+ 320 0054 CDB7      		in r28,__SP_L__
+ 321 0056 DEB7      		in r29,__SP_H__
+ 322 0058 6297      		sbiw r28,18
+ 323 005a 0FB6      		in __tmp_reg__,__SREG__
+ 324 005c F894      		cli
+ 325 005e DEBF      		out __SP_H__,r29
+ 326 0060 0FBE      		out __SREG__,__tmp_reg__
+ 327 0062 CDBF      		out __SP_L__,r28
+ 328               	/* prologue: function */
+ 329               	/* frame size = 18 */
+ 330               	/* stack size = 20 */
+ 331               	.L__stack_usage = 20
+ 107:zad2.c        ****   timer2_init();
+ 333               	.LM18:
+ 334 0064 0E94 0000 		call timer2_init
+ 108:zad2.c        ****   timer_init();
+ 336               	.LM19:
+ 337 0068 0E94 0000 		call timer_init
+ 109:zad2.c        ****   adc_init();
+ 339               	.LM20:
+ 340 006c 0E94 0000 		call adc_init
+ 110:zad2.c        ****   struct PID_DATA pid_data;
+ 111:zad2.c        ****   //                 0.5                     0                   0
+ 112:zad2.c        ****   pid_Init((2 * SCALING_FACTOR) >> 1, 0 * SCALING_FACTOR, 0 * SCALING_FACTOR,
+ 342               	.LM21:
+ 343 0070 9E01      		movw r18,r28
+ 344 0072 2F5F      		subi r18,-1
+ 345 0074 3F4F      		sbci r19,-1
+ 346 0076 40E0      		ldi r20,0
+ 347 0078 50E0      		ldi r21,0
+ 348 007a 60E0      		ldi r22,0
+ 349 007c 70E0      		ldi r23,0
+ 350 007e 80E8      		ldi r24,lo8(-128)
+ 351 0080 90E0      		ldi r25,0
+ 352 0082 0E94 0000 		call pid_Init
+ 113:zad2.c        ****            &pid_data);
+ 114:zad2.c        ****   sei();
+ 354               	.LM22:
+ 355               	/* #APP */
+ 356               	 ;  114 "zad2.c" 1
+ 357 0086 7894      		sei
+ 358               	 ;  0 "" 2
+ 115:zad2.c        ****   int16_t input, ocr2a = OCR2A;
+ 360               	.LM23:
+ 361               	/* #NOAPP */
+ 362 0088 0091 B300 		lds r16,179
+ 363 008c 10E0      		ldi r17,0
+ 116:zad2.c        ****   uint16_t cnt, mapped_temp;
+ 117:zad2.c        ****   while (1) {
+ 118:zad2.c        ****     if (adc_bool) {
+ 119:zad2.c        **** 
+ 120:zad2.c        ****       // Jeśli settemp E (0,35) to takie cos zmapuje go na (0,255)
+ 121:zad2.c        ****       // adc E (0,1023) więc adc/4 bedzie tez w (0,255)
+ 122:zad2.c        ****       input = pid_Controller((settemp * 255) / 35, adc / 4, &pid_data);
+ 365               	.LM24:
+ 366 008e 5524      		clr r5
+ 367 0090 5A94      		dec r5
+ 368 0092 93E2      		ldi r25,lo8(35)
+ 369 0094 692E      		mov r6,r25
+ 370 0096 712C      		mov r7,__zero_reg__
+ 123:zad2.c        ****       //input = -input;
+ 124:zad2.c        ****       if (cnt % 300 == 0) {
+ 372               	.LM25:
+ 373 0098 2CE2      		ldi r18,lo8(44)
+ 374 009a 822E      		mov r8,r18
+ 375 009c 9924      		clr r9
+ 376 009e 9394      		inc r9
+ 125:zad2.c        ****         printf("Pid controller value: %d, OCR2A %d\r\n", input, ocr2a);
+ 378               	.LM26:
+ 379 00a0 30E0      		ldi r19,lo8(.LC0)
+ 380 00a2 A32E      		mov r10,r19
+ 381 00a4 30E0      		ldi r19,hi8(.LC0)
+ 382 00a6 B32E      		mov r11,r19
+ 383               	.L6:
+ 118:zad2.c        **** 
+ 385               	.LM27:
+ 386 00a8 8091 0000 		lds r24,adc_bool
+ 387 00ac 8823      		tst r24
+ 388 00ae 01F0      		breq .L6
+ 122:zad2.c        ****       //input = -input;
+ 390               	.LM28:
+ 391 00b0 2091 0000 		lds r18,adc
+ 392 00b4 3091 0000 		lds r19,adc+1
+ 393 00b8 4091 0000 		lds r20,settemp
+ 394 00bc 5091 0000 		lds r21,settemp+1
+ 395 00c0 3695      		lsr r19
+ 396 00c2 2795      		ror r18
+ 397 00c4 3695      		lsr r19
+ 398 00c6 2795      		ror r18
+ 399 00c8 549E      		mul r5,r20
+ 400 00ca C001      		movw r24,r0
+ 401 00cc 559E      		mul r5,r21
+ 402 00ce 900D      		add r25,r0
+ 403 00d0 1124      		clr __zero_reg__
+ 404 00d2 B301      		movw r22,r6
+ 405 00d4 0E94 0000 		call __udivmodhi4
+ 406 00d8 CB01      		movw r24,r22
+ 407 00da AE01      		movw r20,r28
+ 408 00dc 4F5F      		subi r20,-1
+ 409 00de 5F4F      		sbci r21,-1
+ 410 00e0 B901      		movw r22,r18
+ 411 00e2 0E94 0000 		call pid_Controller
+ 412 00e6 7C01      		movw r14,r24
+ 124:zad2.c        ****         printf("Pid controller value: %d, OCR2A %d\r\n", input, ocr2a);
+ 414               	.LM29:
+ 415 00e8 C601      		movw r24,r12
+ 416 00ea B401      		movw r22,r8
+ 417 00ec 0E94 0000 		call __udivmodhi4
+ 418 00f0 892B      		or r24,r25
+ 419 00f2 01F4      		brne .L7
+ 421               	.LM30:
+ 422 00f4 1F93      		push r17
+ 423 00f6 0F93      		push r16
+ 424 00f8 FF92      		push r15
+ 425 00fa EF92      		push r14
+ 426 00fc BF92      		push r11
+ 427 00fe AF92      		push r10
+ 428 0100 0E94 0000 		call printf
+ 429 0104 0F90      		pop __tmp_reg__
+ 430 0106 0F90      		pop __tmp_reg__
+ 431 0108 0F90      		pop __tmp_reg__
+ 432 010a 0F90      		pop __tmp_reg__
+ 433 010c 0F90      		pop __tmp_reg__
+ 434 010e 0F90      		pop __tmp_reg__
+ 126:zad2.c        ****         cnt = 0;
+ 436               	.LM31:
+ 437 0110 C12C      		mov r12,__zero_reg__
+ 438 0112 D12C      		mov r13,__zero_reg__
+ 439               	.L7:
+ 127:zad2.c        ****       }
+ 128:zad2.c        ****       cnt++;
+ 441               	.LM32:
+ 442 0114 8FEF      		ldi r24,-1
+ 443 0116 C81A      		sub r12,r24
+ 444 0118 D80A      		sbc r13,r24
+ 129:zad2.c        ****       ocr2a = OCR2A;
+ 446               	.LM33:
+ 447 011a 8091 B300 		lds r24,179
+ 448 011e 082F      		mov r16,r24
+ 449 0120 10E0      		ldi r17,0
+ 130:zad2.c        ****       if (ocr2a + input <= 0)
+ 451               	.LM34:
+ 452 0122 9701      		movw r18,r14
+ 453 0124 200F      		add r18,r16
+ 454 0126 311F      		adc r19,r17
+ 455 0128 1216      		cp __zero_reg__,r18
+ 456 012a 1306      		cpc __zero_reg__,r19
+ 457 012c 04F0      		brlt .L8
+ 131:zad2.c        ****         OCR2A = 0;
+ 459               	.LM35:
+ 460 012e 1092 B300 		sts 179,__zero_reg__
+ 461 0132 00C0      		rjmp .L9
+ 462               	.L8:
+ 132:zad2.c        ****       else if (ocr2a + input > 255)
+ 464               	.LM36:
+ 465 0134 2F3F      		cpi r18,-1
+ 466 0136 3105      		cpc r19,__zero_reg__
+ 467 0138 01F0      		breq .L10
+ 468 013a 04F0      		brlt .L10
+ 133:zad2.c        ****         OCR2A = 255;
+ 470               	.LM37:
+ 471 013c 5092 B300 		sts 179,r5
+ 472 0140 00C0      		rjmp .L9
+ 473               	.L10:
+ 134:zad2.c        ****       else
+ 135:zad2.c        ****         OCR2A = ocr2a + input;
+ 475               	.LM38:
+ 476 0142 E80E      		add r14,r24
+ 477 0144 E092 B300 		sts 179,r14
+ 478               	.L9:
+ 136:zad2.c        ****       adc_bool = 0;
+ 480               	.LM39:
+ 481 0148 1092 0000 		sts adc_bool,__zero_reg__
+ 482 014c 00C0      		rjmp .L6
+ 490               	.Lscope5:
+ 492               		.stabd	78,0,0
+ 494               	.global	__vector_14
+ 496               	__vector_14:
+ 497               		.stabd	46,0,0
+  52:zad2.c        **** 
+ 499               	.LM40:
+ 500               	.LFBB6:
+ 501 014e 1F92      		push r1
+ 502 0150 0F92      		push r0
+ 503 0152 0FB6      		in r0,__SREG__
+ 504 0154 0F92      		push r0
+ 505 0156 1124      		clr __zero_reg__
+ 506 0158 8F93      		push r24
+ 507 015a EF93      		push r30
+ 508 015c FF93      		push r31
+ 509               	/* prologue: Signal */
+ 510               	/* frame size = 0 */
+ 511               	/* stack size = 6 */
+ 512               	.L__stack_usage = 6
+  52:zad2.c        **** 
+ 514               	.LM41:
+ 515 015e EAE7      		ldi r30,lo8(122)
+ 516 0160 F0E0      		ldi r31,0
+ 517 0162 8081      		ld r24,Z
+ 518 0164 8064      		ori r24,lo8(64)
+ 519 0166 8083      		st Z,r24
+ 520               	/* epilogue start */
+ 521 0168 FF91      		pop r31
+ 522 016a EF91      		pop r30
+ 523 016c 8F91      		pop r24
+ 524 016e 0F90      		pop r0
+ 525 0170 0FBE      		out __SREG__,r0
+ 526 0172 0F90      		pop r0
+ 527 0174 1F90      		pop r1
+ 528 0176 1895      		reti
+ 530               	.Lscope6:
+ 532               		.stabd	78,0,0
+ 534               	.global	__vector_21
+ 536               	__vector_21:
+ 537               		.stabd	46,0,0
+  57:zad2.c        ****   adc = ADC;
+ 539               	.LM42:
+ 540               	.LFBB7:
+ 541 0178 1F92      		push r1
+ 542 017a 0F92      		push r0
+ 543 017c 0FB6      		in r0,__SREG__
+ 544 017e 0F92      		push r0
+ 545 0180 1124      		clr __zero_reg__
+ 546 0182 8F93      		push r24
+ 547 0184 9F93      		push r25
+ 548               	/* prologue: Signal */
+ 549               	/* frame size = 0 */
+ 550               	/* stack size = 5 */
+ 551               	.L__stack_usage = 5
+  58:zad2.c        ****   // temp = (adc + (adc / 10)) / 1024;
+ 553               	.LM43:
+ 554 0186 8091 7800 		lds r24,120
+ 555 018a 9091 7900 		lds r25,120+1
+ 556 018e 9093 0000 		sts adc+1,r25
+ 557 0192 8093 0000 		sts adc,r24
+  62:zad2.c        **** }
+ 559               	.LM44:
+ 560 0196 81E0      		ldi r24,lo8(1)
+ 561 0198 8093 0000 		sts adc_bool,r24
+ 562               	/* epilogue start */
+  63:zad2.c        **** 
+ 564               	.LM45:
+ 565 019c 9F91      		pop r25
+ 566 019e 8F91      		pop r24
+ 567 01a0 0F90      		pop r0
+ 568 01a2 0FBE      		out __SREG__,r0
+ 569 01a4 0F90      		pop r0
+ 570 01a6 1F90      		pop r1
+ 571 01a8 1895      		reti
+ 573               	.Lscope7:
+ 575               		.stabd	78,0,0
+ 578               	.global	readline
+ 580               	readline:
+ 581               		.stabd	46,0,0
+  65:zad2.c        ****   uint8_t c = 0;
+ 583               	.LM46:
+ 584               	.LFBB8:
+ 585 01aa EF92      		push r14
+ 586 01ac FF92      		push r15
+ 587 01ae 0F93      		push r16
+ 588 01b0 1F93      		push r17
+ 589 01b2 CF93      		push r28
+ 590               	/* prologue: function */
+ 591               	/* frame size = 0 */
+ 592               	/* stack size = 5 */
+ 593               	.L__stack_usage = 5
+ 594 01b4 8C01      		movw r16,r24
+ 595 01b6 7C01      		movw r14,r24
+  66:zad2.c        ****   while (c < BUFF) {
+ 597               	.LM47:
+ 598 01b8 C0E0      		ldi r28,0
+ 599               	.L19:
+  68:zad2.c        ****     if (line[c++] == 0x0d)
+ 601               	.LM48:
+ 602 01ba 8091 0000 		lds r24,__iob
+ 603 01be 9091 0000 		lds r25,__iob+1
+ 604 01c2 0E94 0000 		call fgetc
+ 605 01c6 F701      		movw r30,r14
+ 606 01c8 8193      		st Z+,r24
+ 607 01ca 7F01      		movw r14,r30
+  69:zad2.c        ****       break;
+ 609               	.LM49:
+ 610 01cc CF5F      		subi r28,lo8(-(1))
+ 611 01ce 8D30      		cpi r24,lo8(13)
+ 612 01d0 01F0      		breq .L18
+  67:zad2.c        ****     line[c] = getchar();
+ 614               	.LM50:
+ 615 01d2 C431      		cpi r28,lo8(20)
+ 616 01d4 01F4      		brne .L19
+ 617               	.L18:
+  72:zad2.c        ****   return c;
+ 619               	.LM51:
+ 620 01d6 F801      		movw r30,r16
+ 621 01d8 EC0F      		add r30,r28
+ 622 01da F11D      		adc r31,__zero_reg__
+ 623 01dc 1082      		st Z,__zero_reg__
+  74:zad2.c        **** 
+ 625               	.LM52:
+ 626 01de 8C2F      		mov r24,r28
+ 627               	/* epilogue start */
+ 628 01e0 CF91      		pop r28
+ 629 01e2 1F91      		pop r17
+ 630 01e4 0F91      		pop r16
+ 631 01e6 FF90      		pop r15
+ 632 01e8 EF90      		pop r14
+ 633 01ea 0895      		ret
+ 638               	.Lscope8:
+ 640               		.stabd	78,0,0
+ 641               		.section	.rodata.str1.1
+ 642               	.LC1:
+ 643 0025 2000      		.string	" "
+ 644               	.LC2:
+ 645 0027 7465 6D70 		.string	"temp"
+ 645      00
+ 646               	.global	__floatunsisf
+ 647               	.global	__mulsf3
+ 648               	.global	__subsf3
+ 649               	.global	__divsf3
+ 650               	.LC3:
+ 651 002c 4375 7272 		.string	"Current temp: %.2f\r\n"
+ 651      656E 7420 
+ 651      7465 6D70 
+ 651      3A20 252E 
+ 651      3266 0D0A 
+ 652               	.LC4:
+ 653 0041 6368 616E 		.string	"change"
+ 653      6765 00
+ 654               	.LC5:
+ 655 0048 5365 7420 		.string	"Set temp: %d\r\n"
+ 655      7465 6D70 
+ 655      3A20 2564 
+ 655      0D0A 00
+ 656               		.text
+ 660               	uartControllerTask:
+ 661               		.stabd	46,0,0
+ 137:zad2.c        ****     }
+ 138:zad2.c        ****   }
+ 139:zad2.c        **** }
+ 140:zad2.c        **** 
+ 141:zad2.c        **** static void uartControllerTask(void *pvParameters) {
+ 663               	.LM53:
+ 664               	.LFBB9:
+ 665 01ec CF93      		push r28
+ 666 01ee DF93      		push r29
+ 667 01f0 CDB7      		in r28,__SP_L__
+ 668 01f2 DEB7      		in r29,__SP_H__
+ 669 01f4 6497      		sbiw r28,20
+ 670 01f6 0FB6      		in __tmp_reg__,__SREG__
+ 671 01f8 F894      		cli
+ 672 01fa DEBF      		out __SP_H__,r29
+ 673 01fc 0FBE      		out __SREG__,__tmp_reg__
+ 674 01fe CDBF      		out __SP_L__,r28
+ 675               	/* prologue: function */
+ 676               	/* frame size = 20 */
+ 677               	/* stack size = 22 */
+ 678               	.L__stack_usage = 22
+ 679               	.LBB2:
+ 142:zad2.c        ****   char cmd[BUFF];
+ 143:zad2.c        ****   int16_t tmpsettemp;
+ 144:zad2.c        ****   char *strpart;
+ 145:zad2.c        ****   float temp;
+ 146:zad2.c        ****   while (1) {
+ 147:zad2.c        ****     readline(cmd);
+ 148:zad2.c        ****     strpart = strtok(cmd, " ");
+ 149:zad2.c        ****     if (!strncmp(strpart, "temp", 4)) {
+ 150:zad2.c        ****       temp = (adc * 1.1) / 1024.0;
+ 151:zad2.c        ****       temp = (temp - V_SUB) / MCP9700_SCALE;
+ 152:zad2.c        ****       printf("Current temp: %.2f\r\n", temp);
+ 153:zad2.c        ****     } else if (!strncmp(strpart, "change", 6)) {
+ 154:zad2.c        ****       strpart = strtok(NULL, " ");
+ 155:zad2.c        ****       tmpsettemp = atoi(strpart);
+ 156:zad2.c        ****       settemp = tmpsettemp;
+ 157:zad2.c        ****       printf("Set temp: %d\r\n", tmpsettemp);
+ 681               	.LM54:
+ 682 0200 00E0      		ldi r16,lo8(.LC5)
+ 683 0202 10E0      		ldi r17,hi8(.LC5)
+ 684               	.LBE2:
+ 152:zad2.c        ****     } else if (!strncmp(strpart, "change", 6)) {
+ 686               	.LM55:
+ 687 0204 80E0      		ldi r24,lo8(.LC3)
+ 688 0206 E82E      		mov r14,r24
+ 689 0208 80E0      		ldi r24,hi8(.LC3)
+ 690 020a F82E      		mov r15,r24
+ 691               	.L25:
+ 147:zad2.c        ****     strpart = strtok(cmd, " ");
+ 693               	.LM56:
+ 694 020c CE01      		movw r24,r28
+ 695 020e 0196      		adiw r24,1
+ 696 0210 0E94 0000 		call readline
+ 148:zad2.c        ****     if (!strncmp(strpart, "temp", 4)) {
+ 698               	.LM57:
+ 699 0214 60E0      		ldi r22,lo8(.LC1)
+ 700 0216 70E0      		ldi r23,hi8(.LC1)
+ 701 0218 CE01      		movw r24,r28
+ 702 021a 0196      		adiw r24,1
+ 703 021c 0E94 0000 		call strtok
+ 704 0220 6C01      		movw r12,r24
+ 149:zad2.c        ****       temp = (adc * 1.1) / 1024.0;
+ 706               	.LM58:
+ 707 0222 44E0      		ldi r20,lo8(4)
+ 708 0224 50E0      		ldi r21,0
+ 709 0226 60E0      		ldi r22,lo8(.LC2)
+ 710 0228 70E0      		ldi r23,hi8(.LC2)
+ 711 022a 0E94 0000 		call strncmp
+ 712 022e 892B      		or r24,r25
+ 713 0230 01F4      		brne .L26
+ 150:zad2.c        ****       temp = (temp - V_SUB) / MCP9700_SCALE;
+ 715               	.LM59:
+ 716 0232 6091 0000 		lds r22,adc
+ 717 0236 7091 0000 		lds r23,adc+1
+ 151:zad2.c        ****       printf("Current temp: %.2f\r\n", temp);
+ 719               	.LM60:
+ 720 023a 80E0      		ldi r24,0
+ 721 023c 90E0      		ldi r25,0
+ 722 023e 0E94 0000 		call __floatunsisf
+ 723 0242 2DEC      		ldi r18,lo8(-51)
+ 724 0244 3CEC      		ldi r19,lo8(-52)
+ 725 0246 4CE8      		ldi r20,lo8(-116)
+ 726 0248 5FE3      		ldi r21,lo8(63)
+ 727 024a 0E94 0000 		call __mulsf3
+ 728 024e 20E0      		ldi r18,0
+ 729 0250 30E0      		ldi r19,0
+ 730 0252 40E8      		ldi r20,lo8(-128)
+ 731 0254 5AE3      		ldi r21,lo8(58)
+ 732 0256 0E94 0000 		call __mulsf3
+ 733 025a 2DEC      		ldi r18,lo8(-51)
+ 734 025c 3CEC      		ldi r19,lo8(-52)
+ 735 025e 4CEC      		ldi r20,lo8(-52)
+ 736 0260 5EE3      		ldi r21,lo8(62)
+ 737 0262 0E94 0000 		call __subsf3
+ 152:zad2.c        ****     } else if (!strncmp(strpart, "change", 6)) {
+ 739               	.LM61:
+ 740 0266 27E7      		ldi r18,lo8(119)
+ 741 0268 3EEB      		ldi r19,lo8(-66)
+ 742 026a 4FE9      		ldi r20,lo8(-97)
+ 743 026c 5CE3      		ldi r21,lo8(60)
+ 744 026e 0E94 0000 		call __divsf3
+ 745 0272 9F93      		push r25
+ 746 0274 8F93      		push r24
+ 747 0276 7F93      		push r23
+ 748 0278 6F93      		push r22
+ 749 027a FF92      		push r15
+ 750 027c EF92      		push r14
+ 751 027e 0E94 0000 		call printf
+ 752 0282 0F90      		pop __tmp_reg__
+ 753 0284 0F90      		pop __tmp_reg__
+ 754 0286 0F90      		pop __tmp_reg__
+ 755 0288 0F90      		pop __tmp_reg__
+ 756 028a 0F90      		pop __tmp_reg__
+ 757 028c 0F90      		pop __tmp_reg__
+ 758 028e 00C0      		rjmp .L25
+ 759               	.L26:
+ 153:zad2.c        ****       strpart = strtok(NULL, " ");
+ 761               	.LM62:
+ 762 0290 46E0      		ldi r20,lo8(6)
+ 763 0292 50E0      		ldi r21,0
+ 764 0294 60E0      		ldi r22,lo8(.LC4)
+ 765 0296 70E0      		ldi r23,hi8(.LC4)
+ 766 0298 C601      		movw r24,r12
+ 767 029a 0E94 0000 		call strncmp
+ 768 029e 892B      		or r24,r25
+ 769 02a0 01F0      		breq .+2
+ 770 02a2 00C0      		rjmp .L25
+ 771               	.LBB3:
+ 154:zad2.c        ****       tmpsettemp = atoi(strpart);
+ 773               	.LM63:
+ 774 02a4 60E0      		ldi r22,lo8(.LC1)
+ 775 02a6 70E0      		ldi r23,hi8(.LC1)
+ 776 02a8 80E0      		ldi r24,0
+ 777 02aa 90E0      		ldi r25,0
+ 778 02ac 0E94 0000 		call strtok
+ 155:zad2.c        ****       settemp = tmpsettemp;
+ 780               	.LM64:
+ 781 02b0 0E94 0000 		call atoi
+ 156:zad2.c        ****       printf("Set temp: %d\r\n", tmpsettemp);
+ 783               	.LM65:
+ 784 02b4 9093 0000 		sts settemp+1,r25
+ 785 02b8 8093 0000 		sts settemp,r24
+ 787               	.LM66:
+ 788 02bc 9F93      		push r25
+ 789 02be 8F93      		push r24
+ 790 02c0 1F93      		push r17
+ 791 02c2 0F93      		push r16
+ 792 02c4 0E94 0000 		call printf
+ 793 02c8 0F90      		pop __tmp_reg__
+ 794 02ca 0F90      		pop __tmp_reg__
+ 795 02cc 0F90      		pop __tmp_reg__
+ 796 02ce 0F90      		pop __tmp_reg__
+ 797 02d0 00C0      		rjmp .L25
+ 798               	.LBE3:
+ 803               	.Lscope9:
+ 805               		.stabd	78,0,0
+ 806               		.section	.rodata.str1.1
+ 807               	.LC6:
+ 808 0057 7472 6163 		.string	"trace"
+ 808      6500 
+ 809               	.LC7:
+ 810 005d 7368 6966 		.string	"shift"
+ 810      7400 
+ 811               		.section	.text.startup,"ax",@progbits
+ 813               	.global	main
+ 815               	main:
+ 816               		.stabd	46,0,0
+  81:zad2.c        ****   uart_init();
+ 818               	.LM67:
+ 819               	.LFBB10:
+ 820 0000 EF92      		push r14
+ 821 0002 FF92      		push r15
+ 822 0004 0F93      		push r16
+ 823 0006 CF93      		push r28
+ 824 0008 DF93      		push r29
+ 825 000a 00D0      		rcall .
+ 826 000c 00D0      		rcall .
+ 827 000e CDB7      		in r28,__SP_L__
+ 828 0010 DEB7      		in r29,__SP_H__
+ 829               	/* prologue: function */
+ 830               	/* frame size = 4 */
+ 831               	/* stack size = 9 */
+ 832               	.L__stack_usage = 9
+  82:zad2.c        ****   stdin = stdout = stderr = &uart_file;
+ 834               	.LM68:
+ 835 0012 0E94 0000 		call uart_init
+  83:zad2.c        **** 
+ 837               	.LM69:
+ 838 0016 E0E0      		ldi r30,lo8(__iob)
+ 839 0018 F0E0      		ldi r31,hi8(__iob)
+ 840 001a 80E0      		ldi r24,lo8(uart_file)
+ 841 001c 90E0      		ldi r25,hi8(uart_file)
+ 842 001e 9583      		std Z+5,r25
+ 843 0020 8483      		std Z+4,r24
+ 844 0022 9383      		std Z+3,r25
+ 845 0024 8283      		std Z+2,r24
+ 846 0026 9183      		std Z+1,r25
+ 847 0028 8083      		st Z,r24
+  88:zad2.c        ****               mainTRACE_TASK_PRIORITY, &trace_handle);
+ 849               	.LM70:
+ 850 002a CE01      		movw r24,r28
+ 851 002c 0396      		adiw r24,3
+ 852 002e 7C01      		movw r14,r24
+ 853 0030 02E0      		ldi r16,lo8(2)
+ 854 0032 20E0      		ldi r18,0
+ 855 0034 30E0      		ldi r19,0
+ 856 0036 4CE2      		ldi r20,lo8(44)
+ 857 0038 51E0      		ldi r21,lo8(1)
+ 858 003a 60E0      		ldi r22,lo8(.LC6)
+ 859 003c 70E0      		ldi r23,hi8(.LC6)
+ 860 003e 80E0      		ldi r24,lo8(gs(pidControllerTask))
+ 861 0040 90E0      		ldi r25,hi8(gs(pidControllerTask))
+ 862 0042 0E94 0000 		call xTaskCreate
+  91:zad2.c        ****               mainSHIFTING_TASK_PRIORITY, &shifting_handle);
+ 864               	.LM71:
+ 865 0046 CE01      		movw r24,r28
+ 866 0048 0196      		adiw r24,1
+ 867 004a 7C01      		movw r14,r24
+ 868 004c 20E0      		ldi r18,0
+ 869 004e 30E0      		ldi r19,0
+ 870 0050 4CE2      		ldi r20,lo8(44)
+ 871 0052 51E0      		ldi r21,lo8(1)
+ 872 0054 60E0      		ldi r22,lo8(.LC7)
+ 873 0056 70E0      		ldi r23,hi8(.LC7)
+ 874 0058 80E0      		ldi r24,lo8(gs(uartControllerTask))
+ 875 005a 90E0      		ldi r25,hi8(gs(uartControllerTask))
+ 876 005c 0E94 0000 		call xTaskCreate
+  94:zad2.c        **** 
+ 878               	.LM72:
+ 879 0060 0E94 0000 		call vTaskStartScheduler
+  97:zad2.c        **** 
+ 881               	.LM73:
+ 882 0064 80E0      		ldi r24,0
+ 883 0066 90E0      		ldi r25,0
+ 884               	/* epilogue start */
+ 885 0068 0F90      		pop __tmp_reg__
+ 886 006a 0F90      		pop __tmp_reg__
+ 887 006c 0F90      		pop __tmp_reg__
+ 888 006e 0F90      		pop __tmp_reg__
+ 889 0070 DF91      		pop r29
+ 890 0072 CF91      		pop r28
+ 891 0074 0F91      		pop r16
+ 892 0076 FF90      		pop r15
+ 893 0078 EF90      		pop r14
+ 894 007a 0895      		ret
+ 900               	.Lscope10:
+ 902               		.stabd	78,0,0
+ 903               		.text
+ 906               	.global	sum_pid
+ 908               	sum_pid:
+ 909               		.stabd	46,0,0
+  99:zad2.c        ****   return pid_data->P_Factor + pid_data->D_Factor + pid_data->I_Factor;
+ 911               	.LM74:
+ 912               	.LFBB11:
+ 913               	/* prologue: function */
+ 914               	/* frame size = 0 */
+ 915               	/* stack size = 0 */
+ 916               	.L__stack_usage = 0
+ 917 02d2 FC01      		movw r30,r24
+ 100:zad2.c        **** }
+ 919               	.LM75:
+ 920 02d4 8681      		ldd r24,Z+6
+ 921 02d6 9781      		ldd r25,Z+7
+ 922 02d8 2285      		ldd r18,Z+10
+ 923 02da 3385      		ldd r19,Z+11
+ 924 02dc 280F      		add r18,r24
+ 925 02de 391F      		adc r19,r25
+ 926 02e0 8085      		ldd r24,Z+8
+ 927 02e2 9185      		ldd r25,Z+9
+ 101:zad2.c        **** 
+ 929               	.LM76:
+ 930 02e4 820F      		add r24,r18
+ 931 02e6 931F      		adc r25,r19
+ 932 02e8 0895      		ret
+ 934               	.Lscope11:
+ 936               		.stabd	78,0,0
+ 938               	.global	vApplicationIdleHook
+ 940               	vApplicationIdleHook:
+ 941               		.stabd	46,0,0
+ 103:zad2.c        **** #define RISING 1
+ 943               	.LM77:
+ 944               	.LFBB12:
+ 945               	/* prologue: function */
+ 946               	/* frame size = 0 */
+ 947               	/* stack size = 0 */
+ 948               	.L__stack_usage = 0
+ 949 02ea 0895      		ret
+ 951               	.Lscope12:
+ 953               		.stabd	78,0,0
+ 954               	.global	adc_bool
+ 955               		.section .bss
+ 958               	adc_bool:
+ 959 0000 00        		.zero	1
+ 960               		.comm	adc,2,1
+ 961               	.global	settemp
+ 962               		.data
+ 965               	settemp:
+ 966 0000 1400      		.word	20
+ 967               	.global	uart_file
+ 970               	uart_file:
+ 971 0002 0000 00   		.zero	3
+ 972 0005 03        		.byte	3
+ 973 0006 0000 0000 		.zero	4
+ 974 000a 0000      		.word	gs(uart_transmit)
+ 975 000c 0000      		.word	gs(uart_receive)
+ 976 000e 0000      		.word	0
+ 981               		.text
+ 983               	.Letext0:
+ 984               		.ident	"GCC: (GNU) 5.4.0"
+ 985               	.global __do_copy_data
+ 986               	.global __do_clear_bss
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 zad2.c
+     /tmp/ccYsDRvv.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccYsDRvv.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccYsDRvv.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccYsDRvv.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccYsDRvv.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccYsDRvv.s:184    .text:0000000000000000 grzejnik_init
+     /tmp/ccYsDRvv.s:205    .text:0000000000000006 timer_init
+     /tmp/ccYsDRvv.s:241    .text:000000000000001e timer2_init
+     /tmp/ccYsDRvv.s:273    .text:0000000000000034 adc_init
+     /tmp/ccYsDRvv.s:313    .text:0000000000000050 pidControllerTask
+     /tmp/ccYsDRvv.s:958    .bss:0000000000000000 adc_bool
+                            *COM*:0000000000000002 adc
+     /tmp/ccYsDRvv.s:965    .data:0000000000000000 settemp
+     /tmp/ccYsDRvv.s:496    .text:000000000000014e __vector_14
+     /tmp/ccYsDRvv.s:536    .text:0000000000000178 __vector_21
+     /tmp/ccYsDRvv.s:580    .text:00000000000001aa readline
+     /tmp/ccYsDRvv.s:660    .text:00000000000001ec uartControllerTask
+     /tmp/ccYsDRvv.s:815    .text.startup:0000000000000000 main
+     /tmp/ccYsDRvv.s:970    .data:0000000000000002 uart_file
+     /tmp/ccYsDRvv.s:908    .text:00000000000002d2 sum_pid
+     /tmp/ccYsDRvv.s:940    .text:00000000000002ea vApplicationIdleHook
+
+UNDEFINED SYMBOLS
+pid_Init
+__udivmodhi4
+pid_Controller
+printf
+__iob
+fgetc
+__floatunsisf
+__mulsf3
+__subsf3
+__divsf3
+strtok
+strncmp
+atoi
+uart_init
+xTaskCreate
+vTaskStartScheduler
+uart_transmit
+uart_receive
+__do_copy_data
+__do_clear_bss

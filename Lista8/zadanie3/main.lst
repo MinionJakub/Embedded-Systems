@@ -1,0 +1,627 @@
+   1               		.file	"main.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   9               		.text
+  10               	.Ltext0:
+ 190               	.global	uart_transmit
+ 192               	uart_transmit:
+ 193               		.stabd	46,0,0
+   1:main.c        **** #define __AVR_ATmega328P__
+   2:main.c        **** 
+   3:main.c        **** #include "FreeRTOS.h"
+   4:main.c        **** #include "task.h"
+   5:main.c        **** #include <avr/io.h>
+   6:main.c        **** #include <stdio.h>
+   7:main.c        **** #include "queue.h"
+   8:main.c        **** #include "semphr.h"
+   9:main.c        **** #include <avr/interrupt.h>
+  10:main.c        **** 
+  11:main.c        **** 
+  12:main.c        **** #define mainECHO   2
+  13:main.c        **** #define mainBLINKER 1
+  14:main.c        **** 
+  15:main.c        **** #define BAUD 9600                          // baudrate
+  16:main.c        **** #define UBRR_VALUE ((F_CPU)/16/(BAUD)-1)   // zgodnie ze wzorem
+  17:main.c        **** 
+  18:main.c        **** static void vBlinker(void* pvParameters);
+  19:main.c        **** static void vECHO(void* pvParameters);
+  20:main.c        **** 
+  21:main.c        **** int uart_transmit(char c, FILE *stream);
+  22:main.c        **** int uart_receive(FILE *stream);
+  23:main.c        **** 
+  24:main.c        **** FILE uart_file = FDEV_SETUP_STREAM(uart_transmit, uart_receive, _FDEV_SETUP_RW);
+  25:main.c        **** 
+  26:main.c        **** // inicjalizacja UART
+  27:main.c        **** void uart_init(void)
+  28:main.c        **** {
+  29:main.c        ****   // ustaw baudrate
+  30:main.c        ****   UBRR0 = UBRR_VALUE;
+  31:main.c        ****   // wyczyść rejestr UCSR0A
+  32:main.c        ****   UCSR0A = 0;
+  33:main.c        ****   // włącz odbiornik i nadajnik
+  34:main.c        ****   UCSR0B = _BV(RXEN0) | _BV(TXEN0) | _BV(UDRIE0);
+  35:main.c        ****   // ustaw format 8n1
+  36:main.c        ****   UCSR0C = _BV(UCSZ00) | _BV(UCSZ01);
+  37:main.c        ****   //wlaczenie przerwan
+  38:main.c        ****   UCSR0B |= _BV(RXCIE0) | _BV(TXCIE0);
+  39:main.c        **** }
+  40:main.c        **** 
+  41:main.c        **** QueueHandle_t tx_buffer;
+  42:main.c        **** QueueHandle_t rx_buffer;
+  43:main.c        **** 
+  44:main.c        **** 
+  45:main.c        **** ISR(USART_UDRE_vect){
+  46:main.c        ****   uint8_t value;
+  47:main.c        ****   if(xQueueReceiveFromISR(tx_buffer,&value,0) == pdPASS){
+  48:main.c        ****     UDR0 = value;
+  49:main.c        ****   }
+  50:main.c        ****   // BaseType_t checkIfYieldRequired;
+  51:main.c        ****   // checkIfYieldRequired = xTaskResumeFromISR(mainECHO);
+  52:main.c        ****   // taskYIELD_FROM_ISR(checkIfYieldRequired);
+  53:main.c        **** }
+  54:main.c        **** 
+  55:main.c        **** ISR(USART_RX_vect){
+  56:main.c        ****   char received = UDR0;
+  57:main.c        ****   xQueueSendFromISR(rx_buffer,&received,NULL);
+  58:main.c        ****   // BaseType_t checkIfYieldRequired;
+  59:main.c        ****   // checkIfYieldRequired = xTaskResumeFromISR(mainECHO);
+  60:main.c        ****   // taskYIELD_FROM_ISR(checkIfYieldRequired);
+  61:main.c        **** }
+  62:main.c        **** 
+  63:main.c        **** int uart_transmit(char c, FILE *stream) {
+ 195               	.LM0:
+ 196               	.LFBB1:
+ 197 0000 CF93      		push r28
+ 198 0002 DF93      		push r29
+ 199 0004 1F92      		push __zero_reg__
+ 200 0006 CDB7      		in r28,__SP_L__
+ 201 0008 DEB7      		in r29,__SP_H__
+ 202               	/* prologue: function */
+ 203               	/* frame size = 1 */
+ 204               	/* stack size = 3 */
+ 205               	.L__stack_usage = 3
+ 206 000a 8983      		std Y+1,r24
+  64:main.c        ****   xQueueSend(tx_buffer, &c, portMAX_DELAY);
+ 208               	.LM1:
+ 209 000c 20E0      		ldi r18,0
+ 210 000e 4FEF      		ldi r20,lo8(-1)
+ 211 0010 5FEF      		ldi r21,lo8(-1)
+ 212 0012 BE01      		movw r22,r28
+ 213 0014 6F5F      		subi r22,-1
+ 214 0016 7F4F      		sbci r23,-1
+ 215 0018 8091 0000 		lds r24,tx_buffer
+ 216 001c 9091 0000 		lds r25,tx_buffer+1
+ 217 0020 0E94 0000 		call xQueueGenericSend
+  65:main.c        ****   // UCSR0B |= _BV(UDRIE0);
+  66:main.c        ****   // vTaskSuspend(NULL);
+  67:main.c        ****   // while (!(UCSR0A & _BV(UDRE0))) taskYIELD();
+  68:main.c        ****   // UDR0 = c;
+  69:main.c        ****   return 0;
+  70:main.c        **** }
+ 219               	.LM2:
+ 220 0024 80E0      		ldi r24,0
+ 221 0026 90E0      		ldi r25,0
+ 222               	/* epilogue start */
+ 223 0028 0F90      		pop __tmp_reg__
+ 224 002a DF91      		pop r29
+ 225 002c CF91      		pop r28
+ 226 002e 0895      		ret
+ 228               	.Lscope1:
+ 230               		.stabd	78,0,0
+ 233               	.global	uart_receive
+ 235               	uart_receive:
+ 236               		.stabd	46,0,0
+  71:main.c        **** 
+  72:main.c        **** int uart_receive(FILE *stream) {
+ 238               	.LM3:
+ 239               	.LFBB2:
+ 240 0030 CF93      		push r28
+ 241 0032 DF93      		push r29
+ 242 0034 1F92      		push __zero_reg__
+ 243 0036 CDB7      		in r28,__SP_L__
+ 244 0038 DEB7      		in r29,__SP_H__
+ 245               	/* prologue: function */
+ 246               	/* frame size = 1 */
+ 247               	/* stack size = 3 */
+ 248               	.L__stack_usage = 3
+  73:main.c        ****   uint8_t data;
+  74:main.c        ****   if(xQueueReceive(rx_buffer,&data,portMAX_DELAY) == pdPASS){
+ 250               	.LM4:
+ 251 003a 4FEF      		ldi r20,lo8(-1)
+ 252 003c 5FEF      		ldi r21,lo8(-1)
+ 253 003e BE01      		movw r22,r28
+ 254 0040 6F5F      		subi r22,-1
+ 255 0042 7F4F      		sbci r23,-1
+ 256 0044 8091 0000 		lds r24,rx_buffer
+ 257 0048 9091 0000 		lds r25,rx_buffer+1
+ 258 004c 0E94 0000 		call xQueueReceive
+ 259 0050 8130      		cpi r24,lo8(1)
+ 260 0052 01F4      		brne .L3
+  75:main.c        ****     return data;
+ 262               	.LM5:
+ 263 0054 8981      		ldd r24,Y+1
+ 264 0056 90E0      		ldi r25,0
+ 265 0058 00C0      		rjmp .L2
+ 266               	.L3:
+ 267               	.L2:
+ 268               	/* epilogue start */
+  76:main.c        ****   }
+  77:main.c        ****   // vTaskSuspend(NULL);
+  78:main.c        ****   // while (!(UCSR0A & _BV(RXC0))) taskYIELD();
+  79:main.c        ****   // return _FDEV_EOF;
+  80:main.c        **** }
+ 270               	.LM6:
+ 271 005a 0F90      		pop __tmp_reg__
+ 272 005c DF91      		pop r29
+ 273 005e CF91      		pop r28
+ 274 0060 0895      		ret
+ 279               	.Lscope2:
+ 281               		.stabd	78,0,0
+ 285               	vBlinker:
+ 286               		.stabd	46,0,0
+  81:main.c        **** 
+  82:main.c        **** 
+  83:main.c        **** int main(void)
+  84:main.c        **** {
+  85:main.c        ****     tx_buffer = xQueueCreate(100,sizeof(uint8_t));
+  86:main.c        ****     rx_buffer = xQueueCreate(100,sizeof(uint8_t));
+  87:main.c        **** 
+  88:main.c        ****     // Create task.
+  89:main.c        ****     xTaskHandle blinker_handle;
+  90:main.c        ****     xTaskHandle echo_handle;
+  91:main.c        **** 
+  92:main.c        ****     xTaskCreate
+  93:main.c        ****         (
+  94:main.c        ****          vBlinker,
+  95:main.c        ****          "blink",
+  96:main.c        ****          configMINIMAL_STACK_SIZE,
+  97:main.c        ****          NULL,
+  98:main.c        ****          mainBLINKER,
+  99:main.c        ****          &blinker_handle
+ 100:main.c        ****         );
+ 101:main.c        **** 
+ 102:main.c        ****     xTaskCreate
+ 103:main.c        ****         (
+ 104:main.c        ****          vECHO,
+ 105:main.c        ****          "serial",
+ 106:main.c        ****          600,
+ 107:main.c        ****          NULL,
+ 108:main.c        ****          mainECHO,
+ 109:main.c        ****          &echo_handle
+ 110:main.c        ****         );
+ 111:main.c        **** 
+ 112:main.c        ****     // Start scheduler.
+ 113:main.c        ****     vTaskStartScheduler();
+ 114:main.c        **** 
+ 115:main.c        ****     return 0;
+ 116:main.c        **** }
+ 117:main.c        **** 
+ 118:main.c        **** 
+ 119:main.c        **** void vApplicationIdleHook(void)
+ 120:main.c        **** {
+ 121:main.c        **** 
+ 122:main.c        **** }
+ 123:main.c        **** 
+ 124:main.c        **** static void vBlinker(void* pvParameters)
+ 125:main.c        **** {
+ 288               	.LM7:
+ 289               	.LFBB3:
+ 290               	/* prologue: function */
+ 291               	/* frame size = 0 */
+ 292               	/* stack size = 0 */
+ 293               	.L__stack_usage = 0
+ 126:main.c        ****     DDRB |= _BV(PB2);
+ 295               	.LM8:
+ 296 0062 229A      		sbi 0x4,2
+ 127:main.c        **** 
+ 128:main.c        ****     for ( ;; )
+ 129:main.c        ****     {
+ 130:main.c        ****         PORTB ^= _BV(PB2);
+ 298               	.LM9:
+ 299 0064 C4E0      		ldi r28,lo8(4)
+ 300               	.L6:
+ 302               	.LM10:
+ 303 0066 85B1      		in r24,0x5
+ 304 0068 8C27      		eor r24,r28
+ 305 006a 85B9      		out 0x5,r24
+ 131:main.c        ****         vTaskDelay(500 / portTICK_PERIOD_MS);
+ 307               	.LM11:
+ 308 006c 84EF      		ldi r24,lo8(-12)
+ 309 006e 91E0      		ldi r25,lo8(1)
+ 310 0070 0E94 0000 		call vTaskDelay
+ 311 0074 00C0      		rjmp .L6
+ 313               	.Lscope3:
+ 315               		.stabd	78,0,0
+ 317               	.global	uart_init
+ 319               	uart_init:
+ 320               		.stabd	46,0,0
+  28:main.c        ****   // ustaw baudrate
+ 322               	.LM12:
+ 323               	.LFBB4:
+ 324               	/* prologue: function */
+ 325               	/* frame size = 0 */
+ 326               	/* stack size = 0 */
+ 327               	.L__stack_usage = 0
+  30:main.c        ****   // wyczyść rejestr UCSR0A
+ 329               	.LM13:
+ 330 0076 87E6      		ldi r24,lo8(103)
+ 331 0078 90E0      		ldi r25,0
+ 332 007a 9093 C500 		sts 196+1,r25
+ 333 007e 8093 C400 		sts 196,r24
+  32:main.c        ****   // włącz odbiornik i nadajnik
+ 335               	.LM14:
+ 336 0082 1092 C000 		sts 192,__zero_reg__
+  34:main.c        ****   // ustaw format 8n1
+ 338               	.LM15:
+ 339 0086 E1EC      		ldi r30,lo8(-63)
+ 340 0088 F0E0      		ldi r31,0
+ 341 008a 88E3      		ldi r24,lo8(56)
+ 342 008c 8083      		st Z,r24
+  36:main.c        ****   //wlaczenie przerwan
+ 344               	.LM16:
+ 345 008e 86E0      		ldi r24,lo8(6)
+ 346 0090 8093 C200 		sts 194,r24
+  38:main.c        **** }
+ 348               	.LM17:
+ 349 0094 8081      		ld r24,Z
+ 350 0096 806C      		ori r24,lo8(-64)
+ 351 0098 8083      		st Z,r24
+ 352 009a 0895      		ret
+ 354               	.Lscope4:
+ 356               		.stabd	78,0,0
+ 360               	vECHO:
+ 361               		.stabd	46,0,0
+ 132:main.c        ****     }
+ 133:main.c        **** }
+ 134:main.c        **** 
+ 135:main.c        **** 
+ 136:main.c        **** static void vECHO(void* pvParameters)
+ 137:main.c        **** {
+ 363               	.LM18:
+ 364               	.LFBB5:
+ 365               	/* prologue: function */
+ 366               	/* frame size = 0 */
+ 367               	/* stack size = 0 */
+ 368               	.L__stack_usage = 0
+ 138:main.c        ****     uart_init();
+ 370               	.LM19:
+ 371 009c 0E94 0000 		call uart_init
+ 139:main.c        ****     stdin = stdout = stderr = &uart_file;
+ 373               	.LM20:
+ 374 00a0 80E0      		ldi r24,lo8(uart_file)
+ 375 00a2 90E0      		ldi r25,hi8(uart_file)
+ 376 00a4 9093 0000 		sts __iob+4+1,r25
+ 377 00a8 8093 0000 		sts __iob+4,r24
+ 378 00ac 9093 0000 		sts __iob+2+1,r25
+ 379 00b0 8093 0000 		sts __iob+2,r24
+ 380 00b4 9093 0000 		sts __iob+1,r25
+ 381 00b8 8093 0000 		sts __iob,r24
+ 382               	.L9:
+ 140:main.c        **** 
+ 141:main.c        ****     char input;
+ 142:main.c        **** 
+ 143:main.c        ****     for ( ;; )
+ 144:main.c        ****     {
+ 145:main.c        ****         // puts("Hello World\r\n");
+ 146:main.c        ****         input = getchar();
+ 384               	.LM21:
+ 385 00bc 8091 0000 		lds r24,__iob
+ 386 00c0 9091 0000 		lds r25,__iob+1
+ 387 00c4 0E94 0000 		call fgetc
+ 147:main.c        ****         putchar(input);
+ 389               	.LM22:
+ 390 00c8 6091 0000 		lds r22,__iob+2
+ 391 00cc 7091 0000 		lds r23,__iob+2+1
+ 392 00d0 082E      		mov __tmp_reg__,r24
+ 393 00d2 000C      		lsl r0
+ 394 00d4 990B      		sbc r25,r25
+ 395 00d6 0E94 0000 		call fputc
+ 396 00da 00C0      		rjmp .L9
+ 398               	.Lscope5:
+ 400               		.stabd	78,0,0
+ 402               	.global	__vector_19
+ 404               	__vector_19:
+ 405               		.stabd	46,0,0
+  45:main.c        ****   uint8_t value;
+ 407               	.LM23:
+ 408               	.LFBB6:
+ 409 00dc 1F92      		push r1
+ 410 00de 0F92      		push r0
+ 411 00e0 0FB6      		in r0,__SREG__
+ 412 00e2 0F92      		push r0
+ 413 00e4 1124      		clr __zero_reg__
+ 414 00e6 2F93      		push r18
+ 415 00e8 3F93      		push r19
+ 416 00ea 4F93      		push r20
+ 417 00ec 5F93      		push r21
+ 418 00ee 6F93      		push r22
+ 419 00f0 7F93      		push r23
+ 420 00f2 8F93      		push r24
+ 421 00f4 9F93      		push r25
+ 422 00f6 AF93      		push r26
+ 423 00f8 BF93      		push r27
+ 424 00fa EF93      		push r30
+ 425 00fc FF93      		push r31
+ 426 00fe CF93      		push r28
+ 427 0100 DF93      		push r29
+ 428 0102 1F92      		push __zero_reg__
+ 429 0104 CDB7      		in r28,__SP_L__
+ 430 0106 DEB7      		in r29,__SP_H__
+ 431               	/* prologue: Signal */
+ 432               	/* frame size = 1 */
+ 433               	/* stack size = 18 */
+ 434               	.L__stack_usage = 18
+  47:main.c        ****     UDR0 = value;
+ 436               	.LM24:
+ 437 0108 40E0      		ldi r20,0
+ 438 010a 50E0      		ldi r21,0
+ 439 010c BE01      		movw r22,r28
+ 440 010e 6F5F      		subi r22,-1
+ 441 0110 7F4F      		sbci r23,-1
+ 442 0112 8091 0000 		lds r24,tx_buffer
+ 443 0116 9091 0000 		lds r25,tx_buffer+1
+ 444 011a 0E94 0000 		call xQueueReceiveFromISR
+ 445 011e 8130      		cpi r24,lo8(1)
+ 446 0120 01F4      		brne .L10
+  48:main.c        ****   }
+ 448               	.LM25:
+ 449 0122 8981      		ldd r24,Y+1
+ 450 0124 8093 C600 		sts 198,r24
+ 451               	.L10:
+ 452               	/* epilogue start */
+  53:main.c        **** 
+ 454               	.LM26:
+ 455 0128 0F90      		pop __tmp_reg__
+ 456 012a DF91      		pop r29
+ 457 012c CF91      		pop r28
+ 458 012e FF91      		pop r31
+ 459 0130 EF91      		pop r30
+ 460 0132 BF91      		pop r27
+ 461 0134 AF91      		pop r26
+ 462 0136 9F91      		pop r25
+ 463 0138 8F91      		pop r24
+ 464 013a 7F91      		pop r23
+ 465 013c 6F91      		pop r22
+ 466 013e 5F91      		pop r21
+ 467 0140 4F91      		pop r20
+ 468 0142 3F91      		pop r19
+ 469 0144 2F91      		pop r18
+ 470 0146 0F90      		pop r0
+ 471 0148 0FBE      		out __SREG__,r0
+ 472 014a 0F90      		pop r0
+ 473 014c 1F90      		pop r1
+ 474 014e 1895      		reti
+ 479               	.Lscope6:
+ 481               		.stabd	78,0,0
+ 483               	.global	__vector_18
+ 485               	__vector_18:
+ 486               		.stabd	46,0,0
+  55:main.c        ****   char received = UDR0;
+ 488               	.LM27:
+ 489               	.LFBB7:
+ 490 0150 1F92      		push r1
+ 491 0152 0F92      		push r0
+ 492 0154 0FB6      		in r0,__SREG__
+ 493 0156 0F92      		push r0
+ 494 0158 1124      		clr __zero_reg__
+ 495 015a 2F93      		push r18
+ 496 015c 3F93      		push r19
+ 497 015e 4F93      		push r20
+ 498 0160 5F93      		push r21
+ 499 0162 6F93      		push r22
+ 500 0164 7F93      		push r23
+ 501 0166 8F93      		push r24
+ 502 0168 9F93      		push r25
+ 503 016a AF93      		push r26
+ 504 016c BF93      		push r27
+ 505 016e EF93      		push r30
+ 506 0170 FF93      		push r31
+ 507 0172 CF93      		push r28
+ 508 0174 DF93      		push r29
+ 509 0176 1F92      		push __zero_reg__
+ 510 0178 CDB7      		in r28,__SP_L__
+ 511 017a DEB7      		in r29,__SP_H__
+ 512               	/* prologue: Signal */
+ 513               	/* frame size = 1 */
+ 514               	/* stack size = 18 */
+ 515               	.L__stack_usage = 18
+  56:main.c        ****   xQueueSendFromISR(rx_buffer,&received,NULL);
+ 517               	.LM28:
+ 518 017c 8091 C600 		lds r24,198
+ 519 0180 8983      		std Y+1,r24
+  57:main.c        ****   // BaseType_t checkIfYieldRequired;
+ 521               	.LM29:
+ 522 0182 20E0      		ldi r18,0
+ 523 0184 40E0      		ldi r20,0
+ 524 0186 50E0      		ldi r21,0
+ 525 0188 BE01      		movw r22,r28
+ 526 018a 6F5F      		subi r22,-1
+ 527 018c 7F4F      		sbci r23,-1
+ 528 018e 8091 0000 		lds r24,rx_buffer
+ 529 0192 9091 0000 		lds r25,rx_buffer+1
+ 530 0196 0E94 0000 		call xQueueGenericSendFromISR
+ 531               	/* epilogue start */
+  61:main.c        **** 
+ 533               	.LM30:
+ 534 019a 0F90      		pop __tmp_reg__
+ 535 019c DF91      		pop r29
+ 536 019e CF91      		pop r28
+ 537 01a0 FF91      		pop r31
+ 538 01a2 EF91      		pop r30
+ 539 01a4 BF91      		pop r27
+ 540 01a6 AF91      		pop r26
+ 541 01a8 9F91      		pop r25
+ 542 01aa 8F91      		pop r24
+ 543 01ac 7F91      		pop r23
+ 544 01ae 6F91      		pop r22
+ 545 01b0 5F91      		pop r21
+ 546 01b2 4F91      		pop r20
+ 547 01b4 3F91      		pop r19
+ 548 01b6 2F91      		pop r18
+ 549 01b8 0F90      		pop r0
+ 550 01ba 0FBE      		out __SREG__,r0
+ 551 01bc 0F90      		pop r0
+ 552 01be 1F90      		pop r1
+ 553 01c0 1895      		reti
+ 558               	.Lscope7:
+ 560               		.stabd	78,0,0
+ 561               		.section	.rodata.str1.1,"aMS",@progbits,1
+ 562               	.LC0:
+ 563 0000 626C 696E 		.string	"blink"
+ 563      6B00 
+ 564               	.LC1:
+ 565 0006 7365 7269 		.string	"serial"
+ 565      616C 00
+ 566               		.section	.text.startup,"ax",@progbits
+ 568               	.global	main
+ 570               	main:
+ 571               		.stabd	46,0,0
+  84:main.c        ****     tx_buffer = xQueueCreate(100,sizeof(uint8_t));
+ 573               	.LM31:
+ 574               	.LFBB8:
+ 575 0000 EF92      		push r14
+ 576 0002 FF92      		push r15
+ 577 0004 0F93      		push r16
+ 578 0006 CF93      		push r28
+ 579 0008 DF93      		push r29
+ 580 000a 00D0      		rcall .
+ 581 000c 00D0      		rcall .
+ 582 000e CDB7      		in r28,__SP_L__
+ 583 0010 DEB7      		in r29,__SP_H__
+ 584               	/* prologue: function */
+ 585               	/* frame size = 4 */
+ 586               	/* stack size = 9 */
+ 587               	.L__stack_usage = 9
+  85:main.c        ****     rx_buffer = xQueueCreate(100,sizeof(uint8_t));
+ 589               	.LM32:
+ 590 0012 40E0      		ldi r20,0
+ 591 0014 61E0      		ldi r22,lo8(1)
+ 592 0016 84E6      		ldi r24,lo8(100)
+ 593 0018 0E94 0000 		call xQueueGenericCreate
+ 594 001c 9093 0000 		sts tx_buffer+1,r25
+ 595 0020 8093 0000 		sts tx_buffer,r24
+  86:main.c        **** 
+ 597               	.LM33:
+ 598 0024 40E0      		ldi r20,0
+ 599 0026 61E0      		ldi r22,lo8(1)
+ 600 0028 84E6      		ldi r24,lo8(100)
+ 601 002a 0E94 0000 		call xQueueGenericCreate
+ 602 002e 9093 0000 		sts rx_buffer+1,r25
+ 603 0032 8093 0000 		sts rx_buffer,r24
+  92:main.c        ****         (
+ 605               	.LM34:
+ 606 0036 CE01      		movw r24,r28
+ 607 0038 0396      		adiw r24,3
+ 608 003a 7C01      		movw r14,r24
+ 609 003c 01E0      		ldi r16,lo8(1)
+ 610 003e 20E0      		ldi r18,0
+ 611 0040 30E0      		ldi r19,0
+ 612 0042 45E5      		ldi r20,lo8(85)
+ 613 0044 50E0      		ldi r21,0
+ 614 0046 60E0      		ldi r22,lo8(.LC0)
+ 615 0048 70E0      		ldi r23,hi8(.LC0)
+ 616 004a 80E0      		ldi r24,lo8(gs(vBlinker))
+ 617 004c 90E0      		ldi r25,hi8(gs(vBlinker))
+ 618 004e 0E94 0000 		call xTaskCreate
+ 102:main.c        ****         (
+ 620               	.LM35:
+ 621 0052 CE01      		movw r24,r28
+ 622 0054 0196      		adiw r24,1
+ 623 0056 7C01      		movw r14,r24
+ 624 0058 02E0      		ldi r16,lo8(2)
+ 625 005a 20E0      		ldi r18,0
+ 626 005c 30E0      		ldi r19,0
+ 627 005e 48E5      		ldi r20,lo8(88)
+ 628 0060 52E0      		ldi r21,lo8(2)
+ 629 0062 60E0      		ldi r22,lo8(.LC1)
+ 630 0064 70E0      		ldi r23,hi8(.LC1)
+ 631 0066 80E0      		ldi r24,lo8(gs(vECHO))
+ 632 0068 90E0      		ldi r25,hi8(gs(vECHO))
+ 633 006a 0E94 0000 		call xTaskCreate
+ 113:main.c        **** 
+ 635               	.LM36:
+ 636 006e 0E94 0000 		call vTaskStartScheduler
+ 116:main.c        **** 
+ 638               	.LM37:
+ 639 0072 80E0      		ldi r24,0
+ 640 0074 90E0      		ldi r25,0
+ 641               	/* epilogue start */
+ 642 0076 0F90      		pop __tmp_reg__
+ 643 0078 0F90      		pop __tmp_reg__
+ 644 007a 0F90      		pop __tmp_reg__
+ 645 007c 0F90      		pop __tmp_reg__
+ 646 007e DF91      		pop r29
+ 647 0080 CF91      		pop r28
+ 648 0082 0F91      		pop r16
+ 649 0084 FF90      		pop r15
+ 650 0086 EF90      		pop r14
+ 651 0088 0895      		ret
+ 657               	.Lscope8:
+ 659               		.stabd	78,0,0
+ 660               		.text
+ 662               	.global	vApplicationIdleHook
+ 664               	vApplicationIdleHook:
+ 665               		.stabd	46,0,0
+ 120:main.c        **** 
+ 667               	.LM38:
+ 668               	.LFBB9:
+ 669               	/* prologue: function */
+ 670               	/* frame size = 0 */
+ 671               	/* stack size = 0 */
+ 672               	.L__stack_usage = 0
+ 673 01c2 0895      		ret
+ 675               	.Lscope9:
+ 677               		.stabd	78,0,0
+ 678               		.comm	rx_buffer,2,1
+ 679               		.comm	tx_buffer,2,1
+ 680               	.global	uart_file
+ 681               		.data
+ 684               	uart_file:
+ 685 0000 0000 00   		.zero	3
+ 686 0003 03        		.byte	3
+ 687 0004 0000 0000 		.zero	4
+ 688 0008 0000      		.word	gs(uart_transmit)
+ 689 000a 0000      		.word	gs(uart_receive)
+ 690 000c 0000      		.word	0
+ 694               		.text
+ 696               	.Letext0:
+ 697               		.ident	"GCC: (GNU) 5.4.0"
+ 698               	.global __do_copy_data
+ 699               	.global __do_clear_bss
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 main.c
+     /tmp/cc9HEpjw.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/cc9HEpjw.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/cc9HEpjw.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/cc9HEpjw.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/cc9HEpjw.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/cc9HEpjw.s:192    .text:0000000000000000 uart_transmit
+                            *COM*:0000000000000002 tx_buffer
+     /tmp/cc9HEpjw.s:235    .text:0000000000000030 uart_receive
+                            *COM*:0000000000000002 rx_buffer
+     /tmp/cc9HEpjw.s:285    .text:0000000000000062 vBlinker
+     /tmp/cc9HEpjw.s:319    .text:0000000000000076 uart_init
+     /tmp/cc9HEpjw.s:360    .text:000000000000009c vECHO
+     /tmp/cc9HEpjw.s:684    .data:0000000000000000 uart_file
+     /tmp/cc9HEpjw.s:404    .text:00000000000000dc __vector_19
+     /tmp/cc9HEpjw.s:485    .text:0000000000000150 __vector_18
+     /tmp/cc9HEpjw.s:570    .text.startup:0000000000000000 main
+     /tmp/cc9HEpjw.s:664    .text:00000000000001c2 vApplicationIdleHook
+
+UNDEFINED SYMBOLS
+xQueueGenericSend
+xQueueReceive
+vTaskDelay
+__iob
+fgetc
+fputc
+xQueueReceiveFromISR
+xQueueGenericSendFromISR
+xQueueGenericCreate
+xTaskCreate
+vTaskStartScheduler
+__do_copy_data
+__do_clear_bss

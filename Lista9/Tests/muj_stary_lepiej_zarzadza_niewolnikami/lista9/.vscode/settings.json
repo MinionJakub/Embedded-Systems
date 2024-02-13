@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "usi_twi_slave.h": "c",
+        "usi_twi_master.h": "c",
+        "cstdint": "c"
+    }
+}

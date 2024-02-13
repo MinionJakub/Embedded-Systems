@@ -1,0 +1,325 @@
+
+zadanie2_nano.elf:     file format elf32-avr
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .text         00000172  00000000  00000000  00000094  2**1
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  1 .data         00000000  00800060  00000172  00000206  2**0
+                  CONTENTS, ALLOC, LOAD, DATA
+  2 .bss          00000004  00800060  00800060  00000206  2**0
+                  ALLOC
+  3 .stab         00000900  00000000  00000000  00000208  2**2
+                  CONTENTS, READONLY, DEBUGGING
+  4 .stabstr      00000efe  00000000  00000000  00000b08  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  5 .comment      00000011  00000000  00000000  00001a06  2**0
+                  CONTENTS, READONLY
+  6 .note.gnu.avr.deviceinfo 0000003c  00000000  00000000  00001a18  2**2
+                  CONTENTS, READONLY
+  7 .debug_info   00000420  00000000  00000000  00001a54  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  8 .debug_abbrev 000003e8  00000000  00000000  00001e74  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  9 .debug_line   0000001a  00000000  00000000  0000225c  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 10 .debug_str    00000173  00000000  00000000  00002276  2**0
+                  CONTENTS, READONLY, DEBUGGING
+
+Disassembly of section .text:
+
+00000000 <__vectors>:
+   0:	10 c0       	rjmp	.+32     	; 0x22 <__ctors_end>
+   2:	1f c0       	rjmp	.+62     	; 0x42 <__bad_interrupt>
+   4:	1e c0       	rjmp	.+60     	; 0x42 <__bad_interrupt>
+   6:	1d c0       	rjmp	.+58     	; 0x42 <__bad_interrupt>
+   8:	1c c0       	rjmp	.+56     	; 0x42 <__bad_interrupt>
+   a:	1b c0       	rjmp	.+54     	; 0x42 <__bad_interrupt>
+   c:	1a c0       	rjmp	.+52     	; 0x42 <__bad_interrupt>
+   e:	1e c0       	rjmp	.+60     	; 0x4c <__vector_7>
+  10:	18 c0       	rjmp	.+48     	; 0x42 <__bad_interrupt>
+  12:	17 c0       	rjmp	.+46     	; 0x42 <__bad_interrupt>
+  14:	16 c0       	rjmp	.+44     	; 0x42 <__bad_interrupt>
+  16:	15 c0       	rjmp	.+42     	; 0x42 <__bad_interrupt>
+  18:	14 c0       	rjmp	.+40     	; 0x42 <__bad_interrupt>
+  1a:	13 c0       	rjmp	.+38     	; 0x42 <__bad_interrupt>
+  1c:	12 c0       	rjmp	.+36     	; 0x42 <__bad_interrupt>
+  1e:	11 c0       	rjmp	.+34     	; 0x42 <__bad_interrupt>
+  20:	10 c0       	rjmp	.+32     	; 0x42 <__bad_interrupt>
+
+00000022 <__ctors_end>:
+  22:	11 24       	eor	r1, r1
+  24:	1f be       	out	0x3f, r1	; 63
+  26:	cf e5       	ldi	r28, 0x5F	; 95
+  28:	d2 e0       	ldi	r29, 0x02	; 2
+  2a:	de bf       	out	0x3e, r29	; 62
+  2c:	cd bf       	out	0x3d, r28	; 61
+
+0000002e <__do_clear_bss>:
+  2e:	20 e0       	ldi	r18, 0x00	; 0
+  30:	a0 e6       	ldi	r26, 0x60	; 96
+  32:	b0 e0       	ldi	r27, 0x00	; 0
+  34:	01 c0       	rjmp	.+2      	; 0x38 <.do_clear_bss_start>
+
+00000036 <.do_clear_bss_loop>:
+  36:	1d 92       	st	X+, r1
+
+00000038 <.do_clear_bss_start>:
+  38:	a4 36       	cpi	r26, 0x64	; 100
+  3a:	b2 07       	cpc	r27, r18
+  3c:	e1 f7       	brne	.-8      	; 0x36 <.do_clear_bss_loop>
+  3e:	68 d0       	rcall	.+208    	; 0x110 <main>
+  40:	96 c0       	rjmp	.+300    	; 0x16e <_exit>
+
+00000042 <__bad_interrupt>:
+  42:	de cf       	rjmp	.-68     	; 0x0 <__vectors>
+
+00000044 <init>:
+#define BUTTON_PORT PORTC
+#define BUTTON_PIN PINC
+#define BUTTON_PRESSED (!(BUTTON_PIN & _BV(BUTTON)))
+
+void init(void) {
+  BUTTON_DDR &= ~_BV(BUTTON); // button input
+  44:	3d 98       	cbi	0x07, 5	; 7
+  BUTTON_PORT |= _BV(BUTTON); // button pull-up
+  46:	45 9a       	sbi	0x08, 5	; 8
+  LED_DDR |= _BV(LED);        // led output
+  48:	3c 9a       	sbi	0x07, 4	; 7
+  4a:	08 95       	ret
+
+0000004c <__vector_7>:
+}
+
+volatile uint8_t dataT = 0, dataR = 0, cnt = 0, slave_transmit = 0;
+
+ISR(TIMER2_COMPA_vect) {
+  4c:	1f 92       	push	r1
+  4e:	0f 92       	push	r0
+  50:	0f b6       	in	r0, 0x3f	; 63
+  52:	0f 92       	push	r0
+  54:	11 24       	eor	r1, r1
+  56:	2f 93       	push	r18
+  58:	8f 93       	push	r24
+  5a:	9f 93       	push	r25
+  if (cnt < 8) {
+  5c:	80 91 61 00 	lds	r24, 0x0061	; 0x800061 <cnt>
+  60:	88 30       	cpi	r24, 0x08	; 8
+  62:	d8 f4       	brcc	.+54     	; 0x9a <__vector_7+0x4e>
+    dataT = (dataT << 1) | BUTTON_PRESSED;
+  64:	80 91 63 00 	lds	r24, 0x0063	; 0x800063 <dataT>
+  68:	96 b1       	in	r25, 0x06	; 6
+  6a:	95 fb       	bst	r25, 5
+  6c:	22 27       	eor	r18, r18
+  6e:	20 f9       	bld	r18, 0
+  70:	91 e0       	ldi	r25, 0x01	; 1
+  72:	92 27       	eor	r25, r18
+  74:	88 0f       	add	r24, r24
+  76:	89 2b       	or	r24, r25
+  78:	80 93 63 00 	sts	0x0063, r24	; 0x800063 <dataT>
+    if (dataR & 0x80)
+  7c:	80 91 62 00 	lds	r24, 0x0062	; 0x800062 <dataR>
+  80:	87 fd       	sbrc	r24, 7
+  82:	13 c0       	rjmp	.+38     	; 0xaa <__vector_7+0x5e>
+      LED_PORT |= _BV(LED);
+    else
+      LED_PORT &= ~_BV(LED);
+  84:	44 98       	cbi	0x08, 4	; 8
+    dataR <<= 1;
+  86:	80 91 62 00 	lds	r24, 0x0062	; 0x800062 <dataR>
+  8a:	88 0f       	add	r24, r24
+  8c:	80 93 62 00 	sts	0x0062, r24	; 0x800062 <dataR>
+    cnt++;
+  90:	80 91 61 00 	lds	r24, 0x0061	; 0x800061 <cnt>
+  94:	8f 5f       	subi	r24, 0xFF	; 255
+  96:	80 93 61 00 	sts	0x0061, r24	; 0x800061 <cnt>
+  }
+}
+  9a:	9f 91       	pop	r25
+  9c:	8f 91       	pop	r24
+  9e:	2f 91       	pop	r18
+  a0:	0f 90       	pop	r0
+  a2:	0f be       	out	0x3f, r0	; 63
+  a4:	0f 90       	pop	r0
+  a6:	1f 90       	pop	r1
+  a8:	18 95       	reti
+
+ISR(TIMER2_COMPA_vect) {
+  if (cnt < 8) {
+    dataT = (dataT << 1) | BUTTON_PRESSED;
+    if (dataR & 0x80)
+      LED_PORT |= _BV(LED);
+  aa:	44 9a       	sbi	0x08, 4	; 8
+  ac:	ec cf       	rjmp	.-40     	; 0x86 <__vector_7+0x3a>
+
+000000ae <__vector_17>:
+    cnt++;
+  }
+}
+
+// SS held low, master expects data or transfer completed
+ISR(SPI_STC_vect) {
+  ae:	1f 92       	push	r1
+  b0:	0f 92       	push	r0
+  b2:	0f b6       	in	r0, 0x3f	; 63
+  b4:	0f 92       	push	r0
+  b6:	11 24       	eor	r1, r1
+  b8:	8f 93       	push	r24
+  LED_PORT |= _BV(LED);
+  ba:	44 9a       	sbi	0x08, 4	; 8
+  dataR = SPDR;
+  bc:	8e b5       	in	r24, 0x2e	; 46
+  be:	80 93 62 00 	sts	0x0062, r24	; 0x800062 <dataR>
+  SPDR = dataT;
+  c2:	80 91 63 00 	lds	r24, 0x0063	; 0x800063 <dataT>
+  c6:	8e bd       	out	0x2e, r24	; 46
+  cnt = 0;
+  c8:	10 92 61 00 	sts	0x0061, r1	; 0x800061 <cnt>
+  SPCR &= ~_BV(SPIE);
+  cc:	8c b5       	in	r24, 0x2c	; 44
+  ce:	8f 77       	andi	r24, 0x7F	; 127
+  d0:	8c bd       	out	0x2c, r24	; 44
+}
+  d2:	8f 91       	pop	r24
+  d4:	0f 90       	pop	r0
+  d6:	0f be       	out	0x3f, r0	; 63
+  d8:	0f 90       	pop	r0
+  da:	1f 90       	pop	r1
+  dc:	18 95       	reti
+
+000000de <timer_init>:
+
+void timer_init() {
+  // ctc mode tak zeby przerwanie było co 1/100 s
+  TCCR2A = _BV(WGM21);                        // CTC
+  de:	82 e0       	ldi	r24, 0x02	; 2
+  e0:	80 93 b0 00 	sts	0x00B0, r24	; 0x8000b0 <__bss_end+0x4c>
+  TCCR2B = _BV(CS22) | _BV(CS20) | _BV(CS21); // clk_io /1024
+  e4:	87 e0       	ldi	r24, 0x07	; 7
+  e6:	80 93 b1 00 	sts	0x00B1, r24	; 0x8000b1 <__bss_end+0x4d>
+  OCR2A = 95;                                 // 100Hz
+  ea:	8f e5       	ldi	r24, 0x5F	; 95
+  ec:	80 93 b3 00 	sts	0x00B3, r24	; 0x8000b3 <__bss_end+0x4f>
+  TIMSK2 |= _BV(OCIE2A);
+  f0:	e0 e7       	ldi	r30, 0x70	; 112
+  f2:	f0 e0       	ldi	r31, 0x00	; 0
+  f4:	80 81       	ld	r24, Z
+  f6:	82 60       	ori	r24, 0x02	; 2
+  f8:	80 83       	st	Z, r24
+  fa:	08 95       	ret
+
+000000fc <spi_init>:
+}
+
+void spi_init() {
+  // mcu spi stuff set as input, miso as output
+  uint8_t a;
+  SPI_PORT |= _BV(SPI_SS);
+  fc:	2a 9a       	sbi	0x05, 2	; 5
+  SPI_DDR |= _BV(SPI_MISO);
+  fe:	24 9a       	sbi	0x04, 4	; 4
+  SPCR = _BV(SPE);
+ 100:	80 e4       	ldi	r24, 0x40	; 64
+ 102:	8c bd       	out	0x2c, r24	; 44
+  SPCR &= ~_BV(MSTR);
+ 104:	8c b5       	in	r24, 0x2c	; 44
+ 106:	8f 7e       	andi	r24, 0xEF	; 239
+ 108:	8c bd       	out	0x2c, r24	; 44
+  a = SPSR;
+ 10a:	8d b5       	in	r24, 0x2d	; 45
+  a = SPDR;
+ 10c:	8e b5       	in	r24, 0x2e	; 46
+ 10e:	08 95       	ret
+
+00000110 <main>:
+#define BUTTON_PORT PORTC
+#define BUTTON_PIN PINC
+#define BUTTON_PRESSED (!(BUTTON_PIN & _BV(BUTTON)))
+
+void init(void) {
+  BUTTON_DDR &= ~_BV(BUTTON); // button input
+ 110:	3d 98       	cbi	0x07, 5	; 7
+  BUTTON_PORT |= _BV(BUTTON); // button pull-up
+ 112:	45 9a       	sbi	0x08, 5	; 8
+  LED_DDR |= _BV(LED);        // led output
+ 114:	3c 9a       	sbi	0x07, 4	; 7
+}
+
+void spi_init() {
+  // mcu spi stuff set as input, miso as output
+  uint8_t a;
+  SPI_PORT |= _BV(SPI_SS);
+ 116:	2a 9a       	sbi	0x05, 2	; 5
+  SPI_DDR |= _BV(SPI_MISO);
+ 118:	24 9a       	sbi	0x04, 4	; 4
+  SPCR = _BV(SPE);
+ 11a:	80 e4       	ldi	r24, 0x40	; 64
+ 11c:	8c bd       	out	0x2c, r24	; 44
+  SPCR &= ~_BV(MSTR);
+ 11e:	8c b5       	in	r24, 0x2c	; 44
+ 120:	8f 7e       	andi	r24, 0xEF	; 239
+ 122:	8c bd       	out	0x2c, r24	; 44
+  a = SPSR;
+ 124:	8d b5       	in	r24, 0x2d	; 45
+  a = SPDR;
+ 126:	8e b5       	in	r24, 0x2e	; 46
+  SPCR &= ~_BV(SPIE);
+}
+
+void timer_init() {
+  // ctc mode tak zeby przerwanie było co 1/100 s
+  TCCR2A = _BV(WGM21);                        // CTC
+ 128:	82 e0       	ldi	r24, 0x02	; 2
+ 12a:	80 93 b0 00 	sts	0x00B0, r24	; 0x8000b0 <__bss_end+0x4c>
+  TCCR2B = _BV(CS22) | _BV(CS20) | _BV(CS21); // clk_io /1024
+ 12e:	87 e0       	ldi	r24, 0x07	; 7
+ 130:	80 93 b1 00 	sts	0x00B1, r24	; 0x8000b1 <__bss_end+0x4d>
+  OCR2A = 95;                                 // 100Hz
+ 134:	8f e5       	ldi	r24, 0x5F	; 95
+ 136:	80 93 b3 00 	sts	0x00B3, r24	; 0x8000b3 <__bss_end+0x4f>
+  TIMSK2 |= _BV(OCIE2A);
+ 13a:	80 91 70 00 	lds	r24, 0x0070	; 0x800070 <__bss_end+0xc>
+ 13e:	82 60       	ori	r24, 0x02	; 2
+ 140:	80 93 70 00 	sts	0x0070, r24	; 0x800070 <__bss_end+0xc>
+
+int main(void) {
+  init();
+  spi_init();
+  timer_init();
+  if (SPI_PORT & _BV(SPI_SS))
+ 144:	2a 99       	sbic	0x05, 2	; 5
+    LED_PORT |= _BV(LED);
+ 146:	44 9a       	sbi	0x08, 4	; 8
+  // ustaw tryb uśpienia na tryb bezczynności
+  set_sleep_mode(SLEEP_MODE_IDLE);
+ 148:	83 b7       	in	r24, 0x33	; 51
+ 14a:	81 7f       	andi	r24, 0xF1	; 241
+ 14c:	83 bf       	out	0x33, r24	; 51
+  // odmaskuj przerwania
+  sei();
+ 14e:	78 94       	sei
+  // program testowy
+  while (1) {
+    sleep_mode();
+ 150:	83 b7       	in	r24, 0x33	; 51
+ 152:	81 60       	ori	r24, 0x01	; 1
+ 154:	83 bf       	out	0x33, r24	; 51
+ 156:	88 95       	sleep
+ 158:	83 b7       	in	r24, 0x33	; 51
+ 15a:	8e 7f       	andi	r24, 0xFE	; 254
+ 15c:	83 bf       	out	0x33, r24	; 51
+    if (cnt >= 8) {
+ 15e:	80 91 61 00 	lds	r24, 0x0061	; 0x800061 <cnt>
+ 162:	88 30       	cpi	r24, 0x08	; 8
+ 164:	a8 f3       	brcs	.-22     	; 0x150 <main+0x40>
+      SPCR |= _BV(SPIE);
+ 166:	8c b5       	in	r24, 0x2c	; 44
+ 168:	80 68       	ori	r24, 0x80	; 128
+ 16a:	8c bd       	out	0x2c, r24	; 44
+ 16c:	f1 cf       	rjmp	.-30     	; 0x150 <main+0x40>
+
+0000016e <_exit>:
+ 16e:	f8 94       	cli
+
+00000170 <__stop_program>:
+ 170:	ff cf       	rjmp	.-2      	; 0x170 <__stop_program>

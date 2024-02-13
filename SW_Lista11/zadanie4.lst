@@ -1,0 +1,371 @@
+
+zadanie4.elf:     file format elf32-avr
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .data         00000000  00800100  00000232  000002c6  2**0
+                  CONTENTS, ALLOC, LOAD, DATA
+  1 .text         00000232  00000000  00000000  00000094  2**1
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  2 .bss          00000014  00800100  00800100  000002c6  2**0
+                  ALLOC
+  3 .stab         00000888  00000000  00000000  000002c8  2**2
+                  CONTENTS, READONLY, DEBUGGING
+  4 .stabstr      00000eaa  00000000  00000000  00000b50  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  5 .comment      00000011  00000000  00000000  000019fa  2**0
+                  CONTENTS, READONLY
+  6 .note.gnu.avr.deviceinfo 00000040  00000000  00000000  00001a0c  2**2
+                  CONTENTS, READONLY
+  7 .debug_info   000005f4  00000000  00000000  00001a4c  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  8 .debug_abbrev 000005a2  00000000  00000000  00002040  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  9 .debug_line   0000001a  00000000  00000000  000025e2  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 10 .debug_str    00000208  00000000  00000000  000025fc  2**0
+                  CONTENTS, READONLY, DEBUGGING
+
+Disassembly of section .text:
+
+00000000 <__vectors>:
+   0:	0c 94 34 00 	jmp	0x68	; 0x68 <__ctors_end>
+   4:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+   8:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+   c:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  10:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  14:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  18:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  1c:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  20:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  24:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  28:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  2c:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  30:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  34:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  38:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  3c:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  40:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  44:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  48:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  4c:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  50:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  54:	0c 94 76 00 	jmp	0xec	; 0xec <__vector_21>
+  58:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  5c:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  60:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+  64:	0c 94 46 00 	jmp	0x8c	; 0x8c <__bad_interrupt>
+
+00000068 <__ctors_end>:
+  68:	11 24       	eor	r1, r1
+  6a:	1f be       	out	0x3f, r1	; 63
+  6c:	cf ef       	ldi	r28, 0xFF	; 255
+  6e:	d8 e0       	ldi	r29, 0x08	; 8
+  70:	de bf       	out	0x3e, r29	; 62
+  72:	cd bf       	out	0x3d, r28	; 61
+
+00000074 <__do_clear_bss>:
+  74:	21 e0       	ldi	r18, 0x01	; 1
+  76:	a0 e0       	ldi	r26, 0x00	; 0
+  78:	b1 e0       	ldi	r27, 0x01	; 1
+  7a:	01 c0       	rjmp	.+2      	; 0x7e <.do_clear_bss_start>
+
+0000007c <.do_clear_bss_loop>:
+  7c:	1d 92       	st	X+, r1
+
+0000007e <.do_clear_bss_start>:
+  7e:	a4 31       	cpi	r26, 0x14	; 20
+  80:	b2 07       	cpc	r27, r18
+  82:	e1 f7       	brne	.-8      	; 0x7c <.do_clear_bss_loop>
+  84:	0e 94 b6 00 	call	0x16c	; 0x16c <main>
+  88:	0c 94 17 01 	jmp	0x22e	; 0x22e <_exit>
+
+0000008c <__bad_interrupt>:
+  8c:	0c 94 00 00 	jmp	0	; 0x0 <__vectors>
+
+00000090 <uart_transmit>:
+
+// transmisja jednego znaku
+int uart_transmit(char data, FILE *stream)
+{
+    // czekaj aż transmiter gotowy
+    while (!(UCSR0A & _BV(UDRE0)))
+  90:	90 91 c0 00 	lds	r25, 0x00C0	; 0x8000c0 <__TEXT_REGION_LENGTH__+0x7f80c0>
+  94:	95 ff       	sbrs	r25, 5
+  96:	fc cf       	rjmp	.-8      	; 0x90 <uart_transmit>
+        ;
+    UDR0 = data;
+  98:	80 93 c6 00 	sts	0x00C6, r24	; 0x8000c6 <__TEXT_REGION_LENGTH__+0x7f80c6>
+    return 0;
+}
+  9c:	80 e0       	ldi	r24, 0x00	; 0
+  9e:	90 e0       	ldi	r25, 0x00	; 0
+  a0:	08 95       	ret
+
+000000a2 <uart_receive>:
+
+// odczyt jednego znaku
+int uart_receive(FILE *stream)
+{
+    // czekaj aż znak dostępny
+    while (!(UCSR0A & _BV(RXC0)))
+  a2:	80 91 c0 00 	lds	r24, 0x00C0	; 0x8000c0 <__TEXT_REGION_LENGTH__+0x7f80c0>
+  a6:	87 ff       	sbrs	r24, 7
+  a8:	fc cf       	rjmp	.-8      	; 0xa2 <uart_receive>
+        ;
+    return UDR0;
+  aa:	80 91 c6 00 	lds	r24, 0x00C6	; 0x8000c6 <__TEXT_REGION_LENGTH__+0x7f80c6>
+}
+  ae:	90 e0       	ldi	r25, 0x00	; 0
+  b0:	08 95       	ret
+
+000000b2 <uart_init>:
+
+// inicjalizacja UART
+void uart_init()
+{
+    // ustaw baudrate
+    UBRR0 = UBRR_VALUE;
+  b2:	87 e6       	ldi	r24, 0x67	; 103
+  b4:	90 e0       	ldi	r25, 0x00	; 0
+  b6:	90 93 c5 00 	sts	0x00C5, r25	; 0x8000c5 <__TEXT_REGION_LENGTH__+0x7f80c5>
+  ba:	80 93 c4 00 	sts	0x00C4, r24	; 0x8000c4 <__TEXT_REGION_LENGTH__+0x7f80c4>
+    // wyczyść rejestr UCSR0A
+    UCSR0A = 0;
+  be:	10 92 c0 00 	sts	0x00C0, r1	; 0x8000c0 <__TEXT_REGION_LENGTH__+0x7f80c0>
+    // włącz odbiornik i nadajnik
+    UCSR0B = _BV(RXEN0) | _BV(TXEN0);
+  c2:	88 e1       	ldi	r24, 0x18	; 24
+  c4:	80 93 c1 00 	sts	0x00C1, r24	; 0x8000c1 <__TEXT_REGION_LENGTH__+0x7f80c1>
+    // ustaw format 8n1
+    UCSR0C = _BV(UCSZ00) | _BV(UCSZ01);
+  c8:	86 e0       	ldi	r24, 0x06	; 6
+  ca:	80 93 c2 00 	sts	0x00C2, r24	; 0x8000c2 <__TEXT_REGION_LENGTH__+0x7f80c2>
+  ce:	08 95       	ret
+
+000000d0 <adc_init>:
+FILE uart_file;
+
+// inicjalizowanie ADC
+void adc_init()
+{
+    ADMUX = _BV(REFS0);
+  d0:	ec e7       	ldi	r30, 0x7C	; 124
+  d2:	f0 e0       	ldi	r31, 0x00	; 0
+  d4:	80 e4       	ldi	r24, 0x40	; 64
+  d6:	80 83       	st	Z, r24
+    ADMUX |= 0b0000;
+  d8:	80 81       	ld	r24, Z
+  da:	80 83       	st	Z, r24
+    // DIDR0 = _BV(ADC0D);
+    ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADPS2) | _BV(ADATE) | _BV(ADIE);
+  dc:	ea e7       	ldi	r30, 0x7A	; 122
+  de:	f0 e0       	ldi	r31, 0x00	; 0
+  e0:	8f e2       	ldi	r24, 0x2F	; 47
+  e2:	80 83       	st	Z, r24
+    ADCSRA |= _BV(ADEN);
+  e4:	80 81       	ld	r24, Z
+  e6:	80 68       	ori	r24, 0x80	; 128
+  e8:	80 83       	st	Z, r24
+  ea:	08 95       	ret
+
+000000ec <__vector_21>:
+}
+
+ISR(ADC_vect)
+{
+  ec:	1f 92       	push	r1
+  ee:	0f 92       	push	r0
+  f0:	0f b6       	in	r0, 0x3f	; 63
+  f2:	0f 92       	push	r0
+  f4:	11 24       	eor	r1, r1
+  f6:	2f 93       	push	r18
+  f8:	3f 93       	push	r19
+  fa:	6f 93       	push	r22
+  fc:	7f 93       	push	r23
+  fe:	8f 93       	push	r24
+ 100:	9f 93       	push	r25
+ 102:	af 93       	push	r26
+ 104:	bf 93       	push	r27
+ 106:	ef 93       	push	r30
+ 108:	ff 93       	push	r31
+    ADCSRA |= _BV(ADIF);
+ 10a:	ea e7       	ldi	r30, 0x7A	; 122
+ 10c:	f0 e0       	ldi	r31, 0x00	; 0
+ 10e:	80 81       	ld	r24, Z
+ 110:	80 61       	ori	r24, 0x10	; 16
+ 112:	80 83       	st	Z, r24
+    OCR1A = ADC / 5;
+ 114:	20 91 78 00 	lds	r18, 0x0078	; 0x800078 <__TEXT_REGION_LENGTH__+0x7f8078>
+ 118:	30 91 79 00 	lds	r19, 0x0079	; 0x800079 <__TEXT_REGION_LENGTH__+0x7f8079>
+ 11c:	ad ec       	ldi	r26, 0xCD	; 205
+ 11e:	bc ec       	ldi	r27, 0xCC	; 204
+ 120:	0e 94 08 01 	call	0x210	; 0x210 <__umulhisi3>
+ 124:	96 95       	lsr	r25
+ 126:	87 95       	ror	r24
+ 128:	96 95       	lsr	r25
+ 12a:	87 95       	ror	r24
+ 12c:	90 93 89 00 	sts	0x0089, r25	; 0x800089 <__TEXT_REGION_LENGTH__+0x7f8089>
+ 130:	80 93 88 00 	sts	0x0088, r24	; 0x800088 <__TEXT_REGION_LENGTH__+0x7f8088>
+
+}
+ 134:	ff 91       	pop	r31
+ 136:	ef 91       	pop	r30
+ 138:	bf 91       	pop	r27
+ 13a:	af 91       	pop	r26
+ 13c:	9f 91       	pop	r25
+ 13e:	8f 91       	pop	r24
+ 140:	7f 91       	pop	r23
+ 142:	6f 91       	pop	r22
+ 144:	3f 91       	pop	r19
+ 146:	2f 91       	pop	r18
+ 148:	0f 90       	pop	r0
+ 14a:	0f be       	out	0x3f, r0	; 63
+ 14c:	0f 90       	pop	r0
+ 14e:	1f 90       	pop	r1
+ 150:	18 95       	reti
+
+00000152 <clock_init>:
+
+void clock_init()
+{
+    TCCR1A = _BV(WGM10) | _BV(WGM11) | _BV(COM1A0);
+ 152:	83 e4       	ldi	r24, 0x43	; 67
+ 154:	80 93 80 00 	sts	0x0080, r24	; 0x800080 <__TEXT_REGION_LENGTH__+0x7f8080>
+    TCCR1B = _BV(CS12) | _BV(WGM12) | _BV(WGM13);
+ 158:	8c e1       	ldi	r24, 0x1C	; 28
+ 15a:	80 93 81 00 	sts	0x0081, r24	; 0x800081 <__TEXT_REGION_LENGTH__+0x7f8081>
+    OCR1A = 200;
+ 15e:	88 ec       	ldi	r24, 0xC8	; 200
+ 160:	90 e0       	ldi	r25, 0x00	; 0
+ 162:	90 93 89 00 	sts	0x0089, r25	; 0x800089 <__TEXT_REGION_LENGTH__+0x7f8089>
+ 166:	80 93 88 00 	sts	0x0088, r24	; 0x800088 <__TEXT_REGION_LENGTH__+0x7f8088>
+ 16a:	08 95       	ret
+
+0000016c <main>:
+}
+
+
+int main()
+{   
+    DDRB |= _BV(PB1);
+ 16c:	21 9a       	sbi	0x04, 1	; 4
+
+}
+
+void clock_init()
+{
+    TCCR1A = _BV(WGM10) | _BV(WGM11) | _BV(COM1A0);
+ 16e:	83 e4       	ldi	r24, 0x43	; 67
+ 170:	80 93 80 00 	sts	0x0080, r24	; 0x800080 <__TEXT_REGION_LENGTH__+0x7f8080>
+    TCCR1B = _BV(CS12) | _BV(WGM12) | _BV(WGM13);
+ 174:	8c e1       	ldi	r24, 0x1C	; 28
+ 176:	80 93 81 00 	sts	0x0081, r24	; 0x800081 <__TEXT_REGION_LENGTH__+0x7f8081>
+    OCR1A = 200;
+ 17a:	88 ec       	ldi	r24, 0xC8	; 200
+ 17c:	90 e0       	ldi	r25, 0x00	; 0
+ 17e:	90 93 89 00 	sts	0x0089, r25	; 0x800089 <__TEXT_REGION_LENGTH__+0x7f8089>
+ 182:	80 93 88 00 	sts	0x0088, r24	; 0x800088 <__TEXT_REGION_LENGTH__+0x7f8088>
+
+// inicjalizacja UART
+void uart_init()
+{
+    // ustaw baudrate
+    UBRR0 = UBRR_VALUE;
+ 186:	87 e6       	ldi	r24, 0x67	; 103
+ 188:	90 e0       	ldi	r25, 0x00	; 0
+ 18a:	90 93 c5 00 	sts	0x00C5, r25	; 0x8000c5 <__TEXT_REGION_LENGTH__+0x7f80c5>
+ 18e:	80 93 c4 00 	sts	0x00C4, r24	; 0x8000c4 <__TEXT_REGION_LENGTH__+0x7f80c4>
+    // wyczyść rejestr UCSR0A
+    UCSR0A = 0;
+ 192:	10 92 c0 00 	sts	0x00C0, r1	; 0x8000c0 <__TEXT_REGION_LENGTH__+0x7f80c0>
+    // włącz odbiornik i nadajnik
+    UCSR0B = _BV(RXEN0) | _BV(TXEN0);
+ 196:	88 e1       	ldi	r24, 0x18	; 24
+ 198:	80 93 c1 00 	sts	0x00C1, r24	; 0x8000c1 <__TEXT_REGION_LENGTH__+0x7f80c1>
+    // ustaw format 8n1
+    UCSR0C = _BV(UCSZ00) | _BV(UCSZ01);
+ 19c:	86 e0       	ldi	r24, 0x06	; 6
+ 19e:	80 93 c2 00 	sts	0x00C2, r24	; 0x8000c2 <__TEXT_REGION_LENGTH__+0x7f80c2>
+int main()
+{   
+    DDRB |= _BV(PB1);
+    clock_init();
+    uart_init();
+    fdev_setup_stream(&uart_file, uart_transmit, uart_receive, _FDEV_SETUP_RW);
+ 1a2:	80 e0       	ldi	r24, 0x00	; 0
+ 1a4:	91 e0       	ldi	r25, 0x01	; 1
+ 1a6:	28 e4       	ldi	r18, 0x48	; 72
+ 1a8:	30 e0       	ldi	r19, 0x00	; 0
+ 1aa:	30 93 09 01 	sts	0x0109, r19	; 0x800109 <__DATA_REGION_ORIGIN__+0x9>
+ 1ae:	20 93 08 01 	sts	0x0108, r18	; 0x800108 <__DATA_REGION_ORIGIN__+0x8>
+ 1b2:	21 e5       	ldi	r18, 0x51	; 81
+ 1b4:	30 e0       	ldi	r19, 0x00	; 0
+ 1b6:	30 93 0b 01 	sts	0x010B, r19	; 0x80010b <__DATA_REGION_ORIGIN__+0xb>
+ 1ba:	20 93 0a 01 	sts	0x010A, r18	; 0x80010a <__DATA_REGION_ORIGIN__+0xa>
+ 1be:	23 e0       	ldi	r18, 0x03	; 3
+ 1c0:	20 93 03 01 	sts	0x0103, r18	; 0x800103 <__DATA_REGION_ORIGIN__+0x3>
+ 1c4:	10 92 0d 01 	sts	0x010D, r1	; 0x80010d <__DATA_REGION_ORIGIN__+0xd>
+ 1c8:	10 92 0c 01 	sts	0x010C, r1	; 0x80010c <__DATA_REGION_ORIGIN__+0xc>
+    stdin = stdout = stderr = &uart_file;
+ 1cc:	90 93 13 01 	sts	0x0113, r25	; 0x800113 <__iob+0x5>
+ 1d0:	80 93 12 01 	sts	0x0112, r24	; 0x800112 <__iob+0x4>
+ 1d4:	90 93 11 01 	sts	0x0111, r25	; 0x800111 <__iob+0x3>
+ 1d8:	80 93 10 01 	sts	0x0110, r24	; 0x800110 <__iob+0x2>
+ 1dc:	90 93 0f 01 	sts	0x010F, r25	; 0x80010f <__iob+0x1>
+ 1e0:	80 93 0e 01 	sts	0x010E, r24	; 0x80010e <__iob>
+FILE uart_file;
+
+// inicjalizowanie ADC
+void adc_init()
+{
+    ADMUX = _BV(REFS0);
+ 1e4:	80 e4       	ldi	r24, 0x40	; 64
+ 1e6:	80 93 7c 00 	sts	0x007C, r24	; 0x80007c <__TEXT_REGION_LENGTH__+0x7f807c>
+    ADMUX |= 0b0000;
+ 1ea:	80 91 7c 00 	lds	r24, 0x007C	; 0x80007c <__TEXT_REGION_LENGTH__+0x7f807c>
+ 1ee:	80 93 7c 00 	sts	0x007C, r24	; 0x80007c <__TEXT_REGION_LENGTH__+0x7f807c>
+    // DIDR0 = _BV(ADC0D);
+    ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADPS2) | _BV(ADATE) | _BV(ADIE);
+ 1f2:	8f e2       	ldi	r24, 0x2F	; 47
+ 1f4:	80 93 7a 00 	sts	0x007A, r24	; 0x80007a <__TEXT_REGION_LENGTH__+0x7f807a>
+    ADCSRA |= _BV(ADEN);
+ 1f8:	80 91 7a 00 	lds	r24, 0x007A	; 0x80007a <__TEXT_REGION_LENGTH__+0x7f807a>
+ 1fc:	80 68       	ori	r24, 0x80	; 128
+ 1fe:	80 93 7a 00 	sts	0x007A, r24	; 0x80007a <__TEXT_REGION_LENGTH__+0x7f807a>
+    uart_init();
+    fdev_setup_stream(&uart_file, uart_transmit, uart_receive, _FDEV_SETUP_RW);
+    stdin = stdout = stderr = &uart_file;
+    
+    adc_init();
+    sei();
+ 202:	78 94       	sei
+
+    ADCSRA |= _BV(ADSC);
+ 204:	80 91 7a 00 	lds	r24, 0x007A	; 0x80007a <__TEXT_REGION_LENGTH__+0x7f807a>
+ 208:	80 64       	ori	r24, 0x40	; 64
+ 20a:	80 93 7a 00 	sts	0x007A, r24	; 0x80007a <__TEXT_REGION_LENGTH__+0x7f807a>
+ 20e:	ff cf       	rjmp	.-2      	; 0x20e <main+0xa2>
+
+00000210 <__umulhisi3>:
+ 210:	a2 9f       	mul	r26, r18
+ 212:	b0 01       	movw	r22, r0
+ 214:	b3 9f       	mul	r27, r19
+ 216:	c0 01       	movw	r24, r0
+ 218:	a3 9f       	mul	r26, r19
+ 21a:	70 0d       	add	r23, r0
+ 21c:	81 1d       	adc	r24, r1
+ 21e:	11 24       	eor	r1, r1
+ 220:	91 1d       	adc	r25, r1
+ 222:	b2 9f       	mul	r27, r18
+ 224:	70 0d       	add	r23, r0
+ 226:	81 1d       	adc	r24, r1
+ 228:	11 24       	eor	r1, r1
+ 22a:	91 1d       	adc	r25, r1
+ 22c:	08 95       	ret
+
+0000022e <_exit>:
+ 22e:	f8 94       	cli
+
+00000230 <__stop_program>:
+ 230:	ff cf       	rjmp	.-2      	; 0x230 <__stop_program>
